@@ -1,0 +1,9 @@
+.DS_Store
+.codex
+AGENTS.md
+artifacts
+.env
+.venv
+node_modules
+web/.next
+__pycache__
