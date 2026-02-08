@@ -1,6 +1,8 @@
 .DS_Store
 .codex
+.claude
 AGENTS.md
+CLAUDE.md
 artifacts
 .env
 .venv
