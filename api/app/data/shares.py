@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 from typing import Optional
 
+from app.db.models import ShareArtifact as ShareArtifactRow
+from app.db.session import SessionLocal
 from app.redis.client import get_value, set_value
 from app.redis.keys import share_artifact
 
@@ -73,6 +75,28 @@ def create_share(room_code: str, round_id: str, rendered_story: str) -> ShareArt
     set_value(share_artifact(token), raw, ttl_seconds=SHARE_TTL_SECONDS)
   except Exception:
     _SHARE_FALLBACK[token] = json.loads(raw)
+
+  # Best-effort persistence (DB is optional in local/test).
+  try:
+    db = SessionLocal()
+    try:
+      db.add(
+        ShareArtifactRow(
+          share_token=artifact.token,
+          round_id=None,  # Current app round ids are not DB UUIDs yet.
+          room_code=artifact.room_code,
+          rendered_story_text=artifact.rendered_story,
+          audio_object_key=None,
+          created_at=artifact.created_at,
+          expires_at=artifact.expires_at,
+        )
+      )
+      db.commit()
+    finally:
+      db.close()
+  except Exception:
+    pass
+
   return artifact
 
 
@@ -83,6 +107,31 @@ def get_share(token: str) -> Optional[ShareArtifact]:
     raw = None
   if raw:
     return _decode(raw)
+
+  # Best-effort DB lookup (if available).
+  try:
+    db = SessionLocal()
+    try:
+      row = db.query(ShareArtifactRow).filter(ShareArtifactRow.share_token == token).one_or_none()
+    finally:
+      db.close()
+    if row and row.expires_at and row.expires_at > _now():
+      artifact = ShareArtifact(
+        token=row.share_token,
+        room_code=row.room_code,
+        round_id="",  # Current app round ids are not persisted yet.
+        rendered_story=row.rendered_story_text,
+        created_at=row.created_at,
+        expires_at=row.expires_at,
+      )
+      try:
+        set_value(share_artifact(token), _encode(artifact), ttl_seconds=SHARE_TTL_SECONDS)
+      except Exception:
+        pass
+      return artifact
+  except Exception:
+    pass
+
   payload = _SHARE_FALLBACK.get(token)
   if not payload:
     return None

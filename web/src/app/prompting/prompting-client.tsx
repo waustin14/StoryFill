@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import type { SoloSession } from "@/lib/solo-session"
 import { loadSoloSession, restartSoloRound, saveSoloSession } from "@/lib/solo-session"
 import { clearMultiplayerSession, loadMultiplayerSession, saveMultiplayerSession } from "@/lib/multiplayer-session"
+import { getPromptIssue, isReadable, promptLimits } from "@/lib/prompt-validation"
 
 type MultiplayerPrompt = {
   id: string
@@ -38,35 +39,17 @@ export default function PromptingClient() {
   const [multiplayerError, setMultiplayerError] = useState<string | null>(null)
   const [multiplayerAnswers, setMultiplayerAnswers] = useState<Record<string, string>>({})
   const [multiplayerSubmitStatus, setMultiplayerSubmitStatus] = useState<"idle" | "submitting" | "done">("idle")
+  const [multiplayerValidation, setMultiplayerValidation] = useState(false)
   const [soloAnswers, setSoloAnswers] = useState<Record<string, string>>({})
   const [soloError, setSoloError] = useState<string | null>(null)
+  const [soloValidation, setSoloValidation] = useState(false)
 
   useEffect(() => {
     setSession(loadSoloSession())
   }, [])
 
-  function getPromptIssue(value: string) {
-    if (!value || !value.trim()) {
-      return "Please add a response before submitting."
-    }
-    for (const char of value) {
-      const code = char.charCodeAt(0)
-      if (code < 32 || code > 126) {
-        return (
-          "That response includes characters we can't read yet. " +
-          "Use letters, numbers, and common punctuation only, and remove emoji or control characters."
-        )
-      }
-    }
-    return null
-  }
-
-  function isReadable(value: string) {
-    return !getPromptIssue(value)
-  }
-
   const soloReady =
-    session?.prompts.every((prompt) => isReadable(soloAnswers[prompt.id] ?? "")) ?? false
+    session?.prompts.every((prompt) => isReadable(soloAnswers[prompt.id] ?? "", prompt.type)) ?? false
 
   useEffect(() => {
     const multiplayer = loadMultiplayerSession()
@@ -80,7 +63,7 @@ export default function PromptingClient() {
         let nextSession = multiplayer
         let reconciledPrompts: MultiplayerPrompt[] | null = null
 
-        if (multiplayer.playerId !== "host") {
+        if (multiplayer.role !== "host") {
           const reconnectResponse = await fetch(
             `${apiBase}/v1/rooms/${multiplayer.roomCode}/players/${multiplayer.playerId}:reconnect`,
             {
@@ -120,10 +103,15 @@ export default function PromptingClient() {
         }
 
         const response = await fetch(
-          `${apiBase}/v1/rooms/${nextSession.roomCode}/rounds/${nextSession.roundId}/prompts?player_id=${nextSession.playerId}`
+          `${apiBase}/v1/rooms/${nextSession.roomCode}/rounds/${nextSession.roundId}/prompts?player_id=${nextSession.playerId}&player_token=${encodeURIComponent(nextSession.playerToken)}`
         )
         if (response.status === 410) {
           router.push("/expired")
+          return
+        }
+        if (response.status === 409) {
+          // State-machine guard: multiplayer prompt collection hasn't started yet.
+          router.push("/lobby")
           return
         }
         if (!response.ok) throw new Error("Failed to load prompts.")
@@ -144,7 +132,7 @@ export default function PromptingClient() {
     return () => {
       active = false
     }
-  }, [session])
+  }, [session, router])
 
   if (!session) {
     const multiplayer = loadMultiplayerSession()
@@ -188,11 +176,27 @@ export default function PromptingClient() {
                     type="text"
                     placeholder="Type your answer"
                     value={multiplayerAnswers[prompt.id] ?? ""}
+                    maxLength={promptLimits(prompt.type).max}
                     onChange={(event) =>
                       setMultiplayerAnswers((prev) => ({ ...prev, [prompt.id]: event.target.value }))
                     }
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950"
+                    aria-invalid={
+                      multiplayerValidation &&
+                      !!getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)
+                    }
+                    className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
+                      multiplayerValidation &&
+                      getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)
+                        ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
+                        : "border-slate-200 dark:border-slate-700"
+                    }`}
                   />
+                  {multiplayerValidation &&
+                    getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type) && (
+                      <span className="text-xs text-rose-600 dark:text-rose-300">
+                        {getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)}
+                      </span>
+                    )}
                 </label>
               ))}
             </div>
@@ -205,11 +209,15 @@ export default function PromptingClient() {
               if (!multiplayer) return
               try {
                 setMultiplayerError(null)
+                setMultiplayerValidation(true)
                 const invalidPrompt = multiplayerPrompts.find((prompt) =>
-                  getPromptIssue(multiplayerAnswers[prompt.id] ?? "")
+                  getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)
                 )
                 if (invalidPrompt) {
-                  const issue = getPromptIssue(multiplayerAnswers[invalidPrompt.id] ?? "")
+                  const issue = getPromptIssue(
+                    multiplayerAnswers[invalidPrompt.id] ?? "",
+                    invalidPrompt.type
+                  )
                   setMultiplayerError(`One of your prompts needs attention. ${issue}`)
                   setMultiplayerSubmitStatus("idle")
                   return
@@ -224,6 +232,7 @@ export default function PromptingClient() {
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         player_id: multiplayer.playerId,
+                        player_token: multiplayer.playerToken,
                         value: multiplayerAnswers[prompt.id] ?? "",
                       }),
                     }
@@ -248,7 +257,7 @@ export default function PromptingClient() {
                 setMultiplayerSubmitStatus("idle")
               }
             }}
-            className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className="btn-primary"
           >
             {multiplayerSubmitStatus === "submitting" ? "Submitting..." : "Submit Prompts"}
           </button>
@@ -263,10 +272,10 @@ export default function PromptingClient() {
           No active solo session found. Choose a mode to begin.
         </p>
         <Link
-          href="/mode"
-          className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          href="/"
+          className="btn-primary"
         >
-          Go to Mode Select
+          Return to Start
         </Link>
       </section>
     )
@@ -301,11 +310,22 @@ export default function PromptingClient() {
               type="text"
               placeholder="Type your answer"
               value={soloAnswers[prompt.id] ?? ""}
+              maxLength={promptLimits(prompt.type).max}
               onChange={(event) =>
                 setSoloAnswers((prev) => ({ ...prev, [prompt.id]: event.target.value }))
               }
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950"
+              aria-invalid={soloValidation && !!getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)}
+              className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
+                soloValidation && getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)
+                  ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
+                  : "border-slate-200 dark:border-slate-700"
+              }`}
             />
+            {soloValidation && getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type) && (
+              <span className="text-xs text-rose-600 dark:text-rose-300">
+                {getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)}
+              </span>
+            )}
           </label>
         ))}
       </div>
@@ -323,11 +343,12 @@ export default function PromptingClient() {
         type="button"
         onClick={() => {
           setSoloError(null)
+          setSoloValidation(true)
           const invalidPrompt = session.prompts.find(
-            (prompt) => !!getPromptIssue(soloAnswers[prompt.id] ?? "")
+            (prompt) => !!getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)
           )
           if (invalidPrompt) {
-            const issue = getPromptIssue(soloAnswers[invalidPrompt.id] ?? "")
+            const issue = getPromptIssue(soloAnswers[invalidPrompt.id] ?? "", invalidPrompt.type)
             setSoloError(issue || "Please update the highlighted prompt.")
             return
           }
@@ -343,7 +364,7 @@ export default function PromptingClient() {
           router.push("/reveal")
         }}
         disabled={!soloReady}
-        className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+        className="btn-primary"
       >
         Submit Prompts
       </button>
@@ -355,7 +376,7 @@ export default function PromptingClient() {
           saveSoloSession(nextSession)
           setSession(nextSession)
         }}
-        className="rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+        className="btn-secondary"
       >
         Replay Solo Round
       </button>

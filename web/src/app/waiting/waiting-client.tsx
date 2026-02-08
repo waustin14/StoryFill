@@ -27,6 +27,7 @@ type ReconnectPlayerResponse = {
     room_id: string
     room_code: string
     round_id: string
+    state_version: number
     locked: boolean
     template_id: string
     players: Array<{ id: string; display_name: string }>
@@ -38,12 +39,21 @@ type RoomSnapshot = {
   room_id: string
   room_code: string
   round_id: string
+  state_version: number
   locked: boolean
   template_id: string
   players: Array<{ id: string; display_name: string }>
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
+
+function wsBaseUrl() {
+  const base = new URL(API_BASE_URL)
+  base.protocol = base.protocol === "https:" ? "wss:" : "ws:"
+  base.pathname = "/v1/ws"
+  base.search = ""
+  return base.toString()
+}
 
 export default function WaitingClient() {
   const router = useRouter()
@@ -56,14 +66,14 @@ export default function WaitingClient() {
   const [moderationStatus, setModerationStatus] = useState<"idle" | "loading" | "error">("idle")
   const [moderationError, setModerationError] = useState<string | null>(null)
 
-  const isHost = useMemo(() => session?.playerId === "host", [session])
+  const isHost = useMemo(() => session?.role === "host", [session])
 
   useEffect(() => {
     setSession(loadMultiplayerSession())
   }, [])
 
   useEffect(() => {
-    if (!session || session.playerId === "host") return
+    if (!session || session.role === "host") return
 
     const reconnectKey = `${session.roomCode}:${session.playerId}:${session.playerToken}`
     if (reconnectRef.current === reconnectKey) return
@@ -112,87 +122,121 @@ export default function WaitingClient() {
     return () => {
       active = false
     }
-  }, [session])
+  }, [session, router])
 
   useEffect(() => {
     if (!session) return
 
-    let active = true
-    let timer: ReturnType<typeof setInterval> | null = null
+    let ws: WebSocket | null = null
+    let alive = true
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+    let attempts = 0
 
-    const loadProgress = async () => {
-      try {
-        if (!active) return
-        setStatus((prev) => (prev === "ready" ? "ready" : "loading"))
-        const response = await fetch(
-          `${API_BASE_URL}/v1/rooms/${session.roomCode}/rounds/${session.roundId}/progress`
-        )
-        if (response.status === 410) {
-          router.push("/expired")
-          return
-        }
-        if (!response.ok) throw new Error("Unable to load progress.")
-        const data = (await response.json()) as RoomProgressResponse
-        if (!active) return
-        setProgress(data)
-        setStatus("ready")
-        setError(null)
-      } catch (err) {
-        if (!active) return
+    type RoomEvent =
+      | { type: "room.snapshot"; payload: { room_snapshot: RoomSnapshot; progress: RoomProgressResponse } }
+      | { type: "room.expired" }
+      | { type: string; payload?: unknown }
+
+    const connect = () => {
+      if (!alive) return
+      setStatus("loading")
+      setError(null)
+      setModerationStatus("loading")
+      setModerationError(null)
+
+      // Hosts can connect with either hostToken or their playerToken (host is also a player).
+      const token =
+        session.role === "host" ? (session.hostToken ?? session.playerToken) : session.playerToken
+      if (!token) {
+        clearMultiplayerSession()
+        setSession(null)
         setStatus("error")
-        setError("We couldn't refresh room progress. Retrying...")
+        setError("Missing session token. Please rejoin the room.")
+        return
       }
-    }
+      const url = new URL(wsBaseUrl())
+      url.searchParams.set("room_code", session.roomCode)
+      url.searchParams.set("token", token)
 
-    loadProgress()
-    timer = setInterval(loadProgress, 3000)
+      ws = new WebSocket(url.toString())
 
-    return () => {
-      active = false
-      if (timer) clearInterval(timer)
-    }
-  }, [session])
+      ws.onopen = () => {
+        attempts = 0
+        heartbeatTimer = setInterval(() => {
+          try {
+            ws?.send(JSON.stringify({ type: "client.heartbeat", ts: Date.now() }))
+          } catch {
+            // no-op
+          }
+        }, 25000)
+      }
 
-  useEffect(() => {
-    if (!session || !isHost) return
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as RoomEvent
+          if (payload.type === "room.expired") {
+            router.push("/expired")
+            return
+          }
+          if (payload.type === "room.snapshot") {
+            setSnapshot(payload.payload.room_snapshot)
+            setProgress(payload.payload.progress)
+            setStatus("ready")
+            setError(null)
+            setModerationStatus("ready")
+            setModerationError(null)
+          }
+        } catch {
+          // ignore malformed events
+        }
+      }
 
-    let active = true
-    let timer: ReturnType<typeof setInterval> | null = null
+      const scheduleReconnect = () => {
+        if (!alive) return
+        attempts += 1
+        const backoff = Math.min(1000 * 2 ** attempts, 10000)
+        reconnectTimer = setTimeout(connect, backoff)
+      }
 
-    const loadSnapshot = async () => {
-      try {
-        if (!active) return
-        setModerationStatus((prev) => (prev === "ready" ? "ready" : "loading"))
-        const response = await fetch(
-          `${API_BASE_URL}/v1/rooms/${session.roomCode}:snapshot?host_token=${encodeURIComponent(
-            session.playerToken
-          )}`
-        )
-        if (response.status === 410) {
+      ws.onerror = () => {
+        if (heartbeatTimer) clearInterval(heartbeatTimer)
+        setStatus("error")
+        setError("Connection lost. Reconnecting…")
+        scheduleReconnect()
+      }
+
+      ws.onclose = (event) => {
+        if (heartbeatTimer) clearInterval(heartbeatTimer)
+        if (event.code === 4404 || event.code === 4410) {
+          clearMultiplayerSession()
           router.push("/expired")
           return
         }
-        if (!response.ok) throw new Error("Unable to load room controls.")
-        const data = (await response.json()) as RoomSnapshot
-        if (!active) return
-        setSnapshot(data)
-        setModerationStatus("ready")
-        setModerationError(null)
-      } catch {
-        if (!active) return
-        setModerationStatus("error")
-        setModerationError("We couldn't refresh host controls. Retrying...")
+        if (event.code === 4400 || event.code === 4403) {
+          clearMultiplayerSession()
+          router.push("/room")
+          return
+        }
+        setStatus("error")
+        setError("Connection lost. Reconnecting…")
+        scheduleReconnect()
       }
     }
 
-    loadSnapshot()
-    timer = setInterval(loadSnapshot, 5000)
+    connect()
 
     return () => {
-      active = false
-      if (timer) clearInterval(timer)
+      alive = false
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (heartbeatTimer) clearInterval(heartbeatTimer)
+      try {
+        ws?.close()
+      } catch {
+        // ignore
+      }
     }
-  }, [session, isHost])
+  }, [session, router])
 
   if (!session) {
     return (
@@ -203,7 +247,7 @@ export default function WaitingClient() {
         </p>
         <Link
           href="/room"
-          className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          className="btn-primary"
         >
           Go to Room Lobby
         </Link>
@@ -236,6 +280,12 @@ export default function WaitingClient() {
 
   const toggleRoomLock = async () => {
     if (!session || !isHost) return
+    const hostToken = session.hostToken
+    if (!hostToken) {
+      setModerationStatus("error")
+      setModerationError("Missing host token. Please return to the lobby and create a new room.")
+      return
+    }
     try {
       setModerationStatus("loading")
       setModerationError(null)
@@ -244,7 +294,7 @@ export default function WaitingClient() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ host_token: session.playerToken }),
+          body: JSON.stringify({ host_token: hostToken }),
         }
       )
       if (response.status === 410) {
@@ -263,6 +313,12 @@ export default function WaitingClient() {
 
   const kickPlayer = async (playerId: string) => {
     if (!session || !isHost) return
+    const hostToken = session.hostToken
+    if (!hostToken) {
+      setModerationStatus("error")
+      setModerationError("Missing host token. Please return to the lobby and create a new room.")
+      return
+    }
     try {
       setModerationStatus("loading")
       setModerationError(null)
@@ -271,7 +327,7 @@ export default function WaitingClient() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ host_token: session.playerToken }),
+          body: JSON.stringify({ host_token: hostToken }),
         }
       )
       if (response.status === 410) {
@@ -292,7 +348,7 @@ export default function WaitingClient() {
     <section className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Waiting for the story</h1>
-        <p className="text-slate-600 dark:text-slate-300">
+        <p className="text-muted-foreground">
           Progress updates show counts only — no words are revealed until the host shares the story.
         </p>
       </header>
@@ -307,22 +363,22 @@ export default function WaitingClient() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="rounded-2xl border bg-card p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 Room progress
               </p>
               <h2 className="text-xl font-semibold">Collecting prompts</h2>
             </div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300">
+            <span className="inline-flex items-center gap-2 rounded-full border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
               {statusLabel}
             </span>
           </div>
 
           <div className="mt-6 space-y-4">
             <div
-              className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40"
+              className="space-y-3 rounded-xl border bg-muted p-4"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={assignedTotal}
@@ -333,38 +389,32 @@ export default function WaitingClient() {
                 <span>
                   {submittedTotal} of {assignedTotal} prompts submitted
                 </span>
-                <span className="text-slate-500 dark:text-slate-300">{percent}%</span>
+                <span className="text-muted-foreground">{percent}%</span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-background">
                 <div
-                  className="h-full rounded-full bg-slate-900 transition-[width] duration-300 dark:bg-slate-100"
+                  className="h-full rounded-full bg-primary transition-[width] duration-300"
                   style={{ width: `${percent}%` }}
                 />
               </div>
-              <div className="grid gap-3 text-xs text-slate-500 sm:grid-cols-3 dark:text-slate-400">
-                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {connectedTotal}
-                  </p>
+              <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-3">
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="text-sm font-semibold text-foreground">{connectedTotal}</p>
                   <p>Players connected</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {remaining}
-                  </p>
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="text-sm font-semibold text-foreground">{remaining}</p>
                   <p>Still typing</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {disconnectedTotal}
-                  </p>
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="text-sm font-semibold text-foreground">{disconnectedTotal}</p>
                   <p>Disconnected</p>
                 </div>
               </div>
             </div>
 
             <div
-              className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
+              className="rounded-xl border border-dashed bg-card px-4 py-3 text-sm text-muted-foreground"
               role="status"
               aria-live="polite"
               aria-atomic="true"
@@ -375,14 +425,14 @@ export default function WaitingClient() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {isHost ? "Host view" : "Player view"}
             </p>
             <h2 className="mt-2 text-xl font-semibold">
               {readyToReveal ? (isHost ? "Ready to reveal" : "Waiting for host") : "Waiting for others"}
             </h2>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            <p className="mt-2 text-sm text-muted-foreground">
               {readyToReveal
                 ? isHost
                   ? "Everyone has submitted. You're the only one who can reveal the story."
@@ -397,11 +447,7 @@ export default function WaitingClient() {
                   onClick={(event) => {
                     if (!readyToReveal) event.preventDefault()
                   }}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    readyToReveal
-                      ? "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                      : "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                  }`}
+                  className={readyToReveal ? "btn-primary" : "btn-primary pointer-events-none"}
                   aria-disabled={!readyToReveal}
                 >
                   Reveal Story
@@ -410,14 +456,14 @@ export default function WaitingClient() {
                 <button
                   type="button"
                   disabled
-                  className="rounded-full bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                  className="btn-primary"
                 >
                   Waiting for host
                 </button>
               )}
               <Link
-                href="/room"
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                href="/lobby"
+                className="btn-secondary"
               >
                 Back to lobby
               </Link>
@@ -425,12 +471,12 @@ export default function WaitingClient() {
           </div>
 
           {isHost && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+            <div className="rounded-2xl border bg-card p-6 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 Moderation
               </p>
               <h2 className="mt-2 text-xl font-semibold">Room controls</h2>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              <p className="mt-2 text-sm text-muted-foreground">
                 Lock the room to stop new joins, or remove disruptive players.
               </p>
 
@@ -443,10 +489,10 @@ export default function WaitingClient() {
                 </div>
               )}
 
-              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/40">
+              <div className="mt-4 rounded-xl border bg-muted p-4 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                       Room status
                     </p>
                     <p className="mt-2 text-base font-semibold">
@@ -457,11 +503,7 @@ export default function WaitingClient() {
                     type="button"
                     onClick={toggleRoomLock}
                     disabled={moderationStatus === "loading"}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      hostLocked
-                        ? "border border-slate-300 text-slate-700 hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
-                        : "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                    } ${moderationStatus === "loading" ? "cursor-not-allowed opacity-70" : ""}`}
+                    className="btn-secondary"
                   >
                     {moderationStatus === "loading"
                       ? "Updating..."
@@ -473,21 +515,19 @@ export default function WaitingClient() {
               </div>
 
               <div className="mt-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Players
                 </p>
                 {hostPlayers.length === 0 ? (
-                  <p className="text-sm text-slate-600 dark:text-slate-300">No players yet.</p>
+                  <p className="text-sm text-muted-foreground">No players yet.</p>
                 ) : (
                   <ul className="space-y-2">
                     {hostPlayers.map((player) => (
                       <li
                         key={player.id}
-                        className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950"
+                        className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm"
                       >
-                        <span className="font-medium text-slate-700 dark:text-slate-200">
-                          {player.display_name}
-                        </span>
+                        <span className="font-medium text-foreground">{player.display_name}</span>
                         <button
                           type="button"
                           onClick={() => kickPlayer(player.id)}

@@ -3,8 +3,10 @@ export type MultiplayerSession = {
   roomId: string
   roundId: string
   templateId: string | null
+  role: "host" | "player"
   playerId: string
   playerToken: string
+  hostToken?: string
   displayName?: string | null
   createdAt: string
 }

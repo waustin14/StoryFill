@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 import os
-import uuid
 from typing import Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 
-from app.storage import bucket_name, configure_from_env, put_object
-
 app = FastAPI(title="StoryFill TTS")
-
-configure_from_env()
 
 
 class SpeechRequest(BaseModel):
@@ -39,7 +34,7 @@ def _content_type(format_name: str) -> str:
   return mapping.get(format_name.lower(), "application/octet-stream")
 
 
-def _parse_model(model: str) -> Tuple[str, str]:
+def _parse_model(model: str) -> tuple[str, str]:
   if "/" in model:
     provider, provider_model = model.split("/", 1)
     return provider.lower(), provider_model
@@ -50,7 +45,7 @@ def _parse_model(model: str) -> Tuple[str, str]:
   return default_provider.lower(), model
 
 
-def _provider_config(provider: str) -> Tuple[str, Optional[str]]:
+def _provider_config(provider: str) -> tuple[str, Optional[str]]:
   provider_upper = provider.upper()
   if provider == "openai":
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com")
@@ -62,11 +57,6 @@ def _provider_config(provider: str) -> Tuple[str, Optional[str]]:
   if not base_url:
     raise HTTPException(status_code=400, detail=f"Unknown TTS provider: {provider}.")
   return base_url, api_key
-
-
-def _audio_key(response_format: str) -> str:
-  extension = response_format.lower()
-  return f"tts/{uuid.uuid4().hex}.{extension}"
 
 
 @app.get("/health")
@@ -110,15 +100,7 @@ async def speech_handler(payload: SpeechRequest):
   if response.status_code >= 400:
     raise HTTPException(status_code=502, detail=response.text or "TTS provider error.")
 
-  audio_bytes = response.content
-  key = _audio_key(response_format)
-  put_object(key, audio_bytes, content_type)
-
   return Response(
-    content=audio_bytes,
+    content=response.content,
     media_type=content_type,
-    headers={
-      "x-storyfill-audio-key": key,
-      "x-storyfill-audio-bucket": bucket_name(),
-    },
   )

@@ -7,3 +7,6 @@ artifacts
 node_modules
 web/.next
 __pycache__
+.coverage
+.pytest_cache
+*.pyc

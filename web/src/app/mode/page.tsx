@@ -1,5 +1,5 @@
-import ModeSelectClient from "./mode-select-client"
+import { redirect } from "next/navigation"
 
 export default function ModeSelectPage() {
-  return <ModeSelectClient />
+  redirect("/")
 }

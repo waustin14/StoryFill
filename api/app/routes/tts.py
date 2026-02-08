@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from uuid import uuid4
+
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.data.tts import get_audio_stream, get_job, update_playback_state
+from app.core.rate_limit import check_rate_limit
+from app.data.tts import get_audio_stream, get_job, request_narration, update_playback_state
 
 router = APIRouter(prefix="/v1", tags=["tts"])
 
@@ -17,12 +20,18 @@ class TTSJobStatusResponse(BaseModel):
   from_cache: bool | None = None
 
 
+class TTSGenerateRequest(BaseModel):
+  story: str
+  session_id: str | None = None
+  round_id: str | None = None
+
+
 class TTSPlaybackRequest(BaseModel):
   action: str
 
 
 def _job_response(job) -> TTSJobStatusResponse:
-  audio_url = f"/tts/audio/{job.id}" if job.status == "ready" and job.audio_key else None
+  audio_url = f"/v1/tts/jobs/{job.id}/audio" if job.status == "ready" and job.audio_key else None
   return TTSJobStatusResponse(
     job_id=job.id,
     status="from_cache" if job.from_cache and job.status == "ready" else job.status,
@@ -32,6 +41,23 @@ def _job_response(job) -> TTSJobStatusResponse:
     error_message=job.error_message,
     from_cache=job.from_cache,
   )
+
+
+@router.post("/tts/generate", response_model=TTSJobStatusResponse)
+def generate_tts_handler(payload: TTSGenerateRequest, request: Request):
+  client_ip = request.client.host if request.client else "unknown"
+  result = check_rate_limit(f"ip:{client_ip}:solo_tts", limit=4, window_seconds=300)
+  if not result.allowed:
+    headers = {"Retry-After": str(result.retry_after)} if result.retry_after else None
+    raise HTTPException(
+      status_code=429,
+      detail="Narration requests are rate limited. Please wait a moment and try again.",
+      headers=headers,
+    )
+  session_id = payload.session_id or f"solo_{uuid4().hex[:12]}"
+  round_id = payload.round_id or f"round_{uuid4().hex[:12]}"
+  job = request_narration(session_id, round_id, payload.story)
+  return _job_response(job)
 
 
 @router.get("/tts/jobs/{job_id}", response_model=TTSJobStatusResponse)

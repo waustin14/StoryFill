@@ -5,6 +5,10 @@ def room_state(room_id: str) -> str:
   return f"{KEY_PREFIX}:room:{room_id}:state"
 
 
+def room_code_lookup(room_code: str) -> str:
+  return f"{KEY_PREFIX}:room_code:{room_code.upper()}"
+
+
 def room_presence(room_id: str) -> str:
   return f"{KEY_PREFIX}:room:{room_id}:presence"
 

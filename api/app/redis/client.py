@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Generator, Optional
 
 import redis
 
@@ -34,3 +34,8 @@ def get_value(key: str) -> Optional[str]:
 def delete_key(key: str) -> int:
   client = get_redis()
   return int(client.delete(key))
+
+
+def scan_keys(pattern: str) -> Generator[str, None, None]:
+  client = get_redis()
+  yield from client.scan_iter(match=pattern)

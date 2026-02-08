@@ -4,6 +4,7 @@ All keys are namespaced with `storyfill` to avoid collisions across services.
 
 Patterns:
 - `storyfill:room:{room_id}:state` — authoritative room state
+- `storyfill:room_code:{room_code}` — lookup from room code to room id
 - `storyfill:room:{room_id}:presence` — connected players
 - `storyfill:player:{player_id}:session` — player session metadata
 - `storyfill:queue:{name}` — worker queues

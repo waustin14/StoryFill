@@ -1,13 +1,15 @@
 from fastapi.testclient import TestClient
 
-from app.data.rooms import ROOMS
+from app.core.rate_limit import reset_local_rate_limits_for_tests
+from app.data.rooms import reset_rooms_for_tests
 from app.main import app
 
 client = TestClient(app)
 
 
 def setup_function():
-  ROOMS.clear()
+  reset_rooms_for_tests()
+  reset_local_rate_limits_for_tests()
 
 
 def _create_room():
@@ -21,18 +23,23 @@ def _join_room(room_code: str):
   assert response.status_code == 200
   return response.json()
 
+def _start_room(room_code: str, host_token: str):
+  response = client.post(f"/v1/rooms/{room_code}/start", json={"host_token": host_token})
+  assert response.status_code == 200
+  return response.json()
 
-def _submit_all_prompts(room_code: str, round_id: str, player_id: str):
+
+def _submit_all_prompts(room_code: str, round_id: str, player_id: str, player_token: str):
   response = client.get(
     f"/v1/rooms/{room_code}/rounds/{round_id}/prompts",
-    params={"player_id": player_id},
+    params={"player_id": player_id, "player_token": player_token},
   )
   assert response.status_code == 200
   prompts = response.json()["prompts"]
   for prompt in prompts:
     submit = client.post(
       f"/v1/rooms/{room_code}/rounds/{round_id}/prompts/{prompt['id']}:submit",
-      json={"player_id": player_id, "value": "test"},
+      json={"player_id": player_id, "player_token": player_token, "value": "test"},
     )
     assert submit.status_code == 200
 
@@ -40,7 +47,9 @@ def _submit_all_prompts(room_code: str, round_id: str, player_id: str):
 def test_reveal_requires_host_and_locks_story():
   room = _create_room()
   join = _join_room(room["room_code"])
-  _submit_all_prompts(room["room_code"], room["round_id"], join["player_id"])
+  _start_room(room["room_code"], room["host_token"])
+  _submit_all_prompts(room["room_code"], room["round_id"], room["player_id"], room["player_token"])
+  _submit_all_prompts(room["room_code"], room["round_id"], join["player_id"], join["player_token"])
 
   forbidden = client.post(
     f"/v1/rooms/{room['room_code']}/reveal",
@@ -62,12 +71,12 @@ def test_reveal_requires_host_and_locks_story():
 
   prompts = client.get(
     f"/v1/rooms/{room['room_code']}/rounds/{room['round_id']}/prompts",
-    params={"player_id": join["player_id"]},
+    params={"player_id": join["player_id"], "player_token": join["player_token"]},
   )
   prompt_id = prompts.json()["prompts"][0]["id"]
   submit = client.post(
     f"/v1/rooms/{room['room_code']}/rounds/{room['round_id']}/prompts/{prompt_id}:submit",
-    json={"player_id": join["player_id"], "value": "late"},
+    json={"player_id": join["player_id"], "player_token": join["player_token"], "value": "late"},
   )
   assert submit.status_code == 409
 
@@ -75,14 +84,15 @@ def test_reveal_requires_host_and_locks_story():
 def test_reveal_requires_all_prompts():
   room = _create_room()
   join = _join_room(room["room_code"])
+  _start_room(room["room_code"], room["host_token"])
   response = client.get(
     f"/v1/rooms/{room['room_code']}/rounds/{room['round_id']}/prompts",
-    params={"player_id": join["player_id"]},
+    params={"player_id": join["player_id"], "player_token": join["player_token"]},
   )
   prompt_id = response.json()["prompts"][0]["id"]
   submit = client.post(
     f"/v1/rooms/{room['room_code']}/rounds/{room['round_id']}/prompts/{prompt_id}:submit",
-    json={"player_id": join["player_id"], "value": "test"},
+    json={"player_id": join["player_id"], "player_token": join["player_token"], "value": "test"},
   )
   assert submit.status_code == 200
 
@@ -96,7 +106,9 @@ def test_reveal_requires_all_prompts():
 def test_replay_resets_round_and_story():
   room = _create_room()
   join = _join_room(room["room_code"])
-  _submit_all_prompts(room["room_code"], room["round_id"], join["player_id"])
+  _start_room(room["room_code"], room["host_token"])
+  _submit_all_prompts(room["room_code"], room["round_id"], room["player_id"], room["player_token"])
+  _submit_all_prompts(room["room_code"], room["round_id"], join["player_id"], join["player_token"])
   reveal = client.post(
     f"/v1/rooms/{room['room_code']}/reveal",
     json={"host_token": room["host_token"]},

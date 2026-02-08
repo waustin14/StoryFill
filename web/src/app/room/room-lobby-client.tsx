@@ -9,9 +9,22 @@ type CreateRoomResponse = {
   room_code: string
   room_id: string
   round_id: string
+  player_id: string
+  player_token: string
+  player_display_name: string
   host_token: string
   ws_url: string
   template_id: string
+  room_snapshot: {
+    room_id: string
+    room_code: string
+    round_id: string
+    state_version: number
+    room_state: string
+    locked: boolean
+    template_id: string
+    players: Array<{ id: string; display_name: string }>
+  }
 }
 
 type JoinRoomResponse = {
@@ -22,6 +35,8 @@ type JoinRoomResponse = {
     room_id: string
     room_code: string
     round_id: string
+    state_version: number
+    room_state: string
     locked: boolean
     template_id: string
     players: Array<{ id: string; display_name: string }>
@@ -49,7 +64,7 @@ export default function RoomLobbyClient() {
       const response = await fetch(`${API_BASE_URL}/v1/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: templateId || null }),
+        body: JSON.stringify({ template_id: templateId || null, display_name: displayName || null }),
       })
       if (!response.ok) {
         if (response.status === 429) {
@@ -65,12 +80,15 @@ export default function RoomLobbyClient() {
         roomId: data.room_id,
         roundId: data.round_id,
         templateId: data.template_id ?? null,
-        playerId: "host",
-        playerToken: data.host_token,
+        role: "host",
+        playerId: data.player_id,
+        playerToken: data.player_token,
+        hostToken: data.host_token,
+        displayName: data.player_display_name ?? null,
         createdAt: new Date().toISOString(),
       })
       setCreateStatus("done")
-      router.push("/prompting")
+      router.push("/templates?mode=multiplayer")
     } catch (err) {
       setCreateStatus("error")
       const message = err instanceof Error ? err.message : "Unable to create a room right now."
@@ -99,6 +117,12 @@ export default function RoomLobbyClient() {
           setError("That room is locked. Ask the host to unlock it.")
           return
         }
+        if (response.status === 409) {
+          const payload = (await response.json()) as { detail?: string }
+          setJoinStatus("error")
+          setError(payload.detail || "That room is full.")
+          return
+        }
         if (response.status === 429) {
           const payload = (await response.json()) as { detail?: string }
           setJoinStatus("error")
@@ -114,13 +138,14 @@ export default function RoomLobbyClient() {
         roomId: data.room_snapshot.room_id,
         roundId: data.room_snapshot.round_id,
         templateId: data.room_snapshot.template_id ?? null,
+        role: "player",
         playerId: data.player_id,
         playerToken: data.player_token,
         displayName: data.player_display_name ?? displayName ?? null,
         createdAt: new Date().toISOString(),
       })
       setJoinStatus("done")
-      router.push("/prompting")
+      router.push("/templates?mode=multiplayer")
     } catch (err) {
       setJoinStatus("error")
       const message =
@@ -133,17 +158,17 @@ export default function RoomLobbyClient() {
     <section className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Room Lobby</h1>
-        <p className="text-slate-600 dark:text-slate-300">
+        <p className="text-muted-foreground">
           Create a room as host or join an existing room with a code.
         </p>
       </header>
 
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {createStatus === "loading" && "Creating room."}
-        {createStatus === "done" && "Room created. Redirecting to prompts."}
+        {createStatus === "done" && "Room created. Redirecting to templates."}
         {createStatus === "error" && "Room creation failed."}
         {joinStatus === "loading" && "Joining room."}
-        {joinStatus === "done" && "Joined room. Redirecting to prompts."}
+        {joinStatus === "done" && "Joined room. Redirecting to templates."}
         {joinStatus === "error" && "Unable to join room."}
       </div>
 
@@ -157,66 +182,71 @@ export default function RoomLobbyClient() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+        <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
           <h2 className="text-lg font-semibold">Host a Room</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-muted-foreground">
             Start a lobby and share the room code with friends.
           </p>
           <button
             type="button"
             onClick={handleCreateRoom}
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className="btn-secondary"
           >
             {createStatus === "loading" ? "Creating..." : "Create Room"}
           </button>
 
           {createdRoom && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/40">
-              <p className="text-slate-600 dark:text-slate-300">Room Code</p>
-              <p className="text-xl font-semibold">{createdRoom.room_code}</p>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Round: {createdRoom.round_id}
+            <div className="rounded-xl border bg-muted p-4 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Room code
               </p>
+              <p className="mt-3">
+                <span className="mono-chip">{createdRoom.room_code}</span>
+              </p>
+              <p className="mt-3 text-xs text-muted-foreground">Round: {createdRoom.round_id}</p>
             </div>
           )}
         </div>
 
-        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+        <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
           <h2 className="text-lg font-semibold">Join a Room</h2>
           <form className="space-y-3" onSubmit={handleJoinRoom}>
-            <label className="block text-sm font-semibold text-slate-500 dark:text-slate-400">
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Room Code
               <input
                 value={roomCode}
                 onChange={(event) => setRoomCode(event.target.value.toUpperCase())}
                 placeholder="ABC123"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950"
+                className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus-ring"
                 required
               />
             </label>
-            <label className="block text-sm font-semibold text-slate-500 dark:text-slate-400">
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Display Name (optional)
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
                 placeholder="Player name"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950"
+                maxLength={30}
+                className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus-ring"
               />
             </label>
             <button
               type="submit"
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+              className="btn-primary"
             >
               {joinStatus === "loading" ? "Joining..." : "Join Room"}
             </button>
           </form>
 
           {joinedRoom && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/40">
-              <p className="text-slate-600 dark:text-slate-300">Players</p>
+            <div className="rounded-xl border bg-muted p-4 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Players
+              </p>
               <ul className="mt-2 space-y-1">
                 {joinedRoom.room_snapshot.players.map((player) => (
-                  <li key={player.id} className="text-slate-700 dark:text-slate-200">
+                  <li key={player.id} className="text-foreground">
                     {player.display_name}
                   </li>
                 ))}

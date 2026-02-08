@@ -13,6 +13,7 @@ import {
   saveMultiplayerSession,
 } from "@/lib/multiplayer-session"
 import { renderStory } from "@/lib/story-renderer"
+import { ttsStatusLabel } from "@/lib/tts-status"
 
 type RevealRoomResponse = {
   room_id: string
@@ -32,6 +33,17 @@ type RoomProgressResponse = {
   connected_total: number
   disconnected_total: number
   ready_to_reveal: boolean
+}
+
+type RoomSnapshot = {
+  room_id: string
+  room_code: string
+  round_id: string
+  state_version: number
+  room_state: string
+  locked: boolean
+  template_id: string
+  players: Array<{ id: string; display_name: string }>
 }
 
 type ReplayRoomResponse = {
@@ -59,28 +71,29 @@ type ReconnectPlayerResponse = {
   player_id: string
   player_token: string
   player_display_name: string
-  room_snapshot: {
-    room_id: string
-    room_code: string
-    round_id: string
-    locked: boolean
-    template_id: string
-    players: Array<{ id: string; display_name: string }>
-  }
+  room_snapshot: RoomSnapshot
   prompts: Array<{ id: string; label: string; type: string; submitted: boolean }>
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 
+function wsBaseUrl() {
+  const base = new URL(API_BASE_URL)
+  base.protocol = base.protocol === "https:" ? "wss:" : "ws:"
+  base.pathname = "/v1/ws"
+  base.search = ""
+  return base.toString()
+}
+
 export default function RevealClient() {
   const router = useRouter()
   const storyRef = useRef<HTMLDivElement | null>(null)
+  const storyValueRef = useRef<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const reconnectRef = useRef<string | null>(null)
   const [soloSession, setSoloSession] = useState<SoloSession | null>(null)
   const [multiplayerSession, setMultiplayerSession] = useState<MultiplayerSession | null>(null)
   const [story, setStory] = useState<string | null>(null)
-  const [status, setStatus] = useState<"idle" | "loading" | "waiting" | "ready" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [readyToReveal, setReadyToReveal] = useState(false)
   const [ttsJobId, setTtsJobId] = useState<string | null>(null)
@@ -100,7 +113,11 @@ export default function RevealClient() {
   }, [])
 
   useEffect(() => {
-    if (!multiplayerSession || multiplayerSession.playerId === "host") return
+    storyValueRef.current = story
+  }, [story])
+
+  useEffect(() => {
+    if (!multiplayerSession || multiplayerSession.role === "host") return
 
     const reconnectKey = `${multiplayerSession.roomCode}:${multiplayerSession.playerId}:${multiplayerSession.playerToken}`
     if (reconnectRef.current === reconnectKey) return
@@ -149,7 +166,7 @@ export default function RevealClient() {
     return () => {
       active = false
     }
-  }, [multiplayerSession])
+  }, [multiplayerSession, router])
 
   useEffect(() => {
     if (!multiplayerSession) return
@@ -157,7 +174,7 @@ export default function RevealClient() {
     setShareUrl(null)
     setShareExpiresAt(null)
     setShareError(null)
-  }, [multiplayerSession?.roundId])
+  }, [multiplayerSession])
 
   const mode = useMemo(() => {
     if (soloSession) return "solo"
@@ -166,7 +183,7 @@ export default function RevealClient() {
   }, [soloSession, multiplayerSession])
 
   const isHost = useMemo(
-    () => multiplayerSession?.playerId === "host",
+    () => multiplayerSession?.role === "host",
     [multiplayerSession]
   )
 
@@ -176,15 +193,14 @@ export default function RevealClient() {
 
   const soloStory = useMemo(() => {
     if (!soloSession || !soloReady) return null
-    return renderStory(soloSession.templateId, soloSession.prompts)
+    return renderStory(soloSession.story, soloSession.slots, soloSession.prompts)
   }, [soloSession, soloReady])
 
   const normalizeAudioUrl = (url: string | null | undefined) => {
     if (!url) return null
     if (url.startsWith("http://") || url.startsWith("https://")) return url
     if (url.startsWith("/")) {
-      if (typeof window !== "undefined") return `${window.location.origin}${url}`
-      return url
+      return `${API_BASE_URL}${url}`
     }
     return `${API_BASE_URL}/${url}`
   }
@@ -192,96 +208,173 @@ export default function RevealClient() {
   useEffect(() => {
     if (mode !== "multi" || !multiplayerSession) return
 
-    let active = true
-    let timer: ReturnType<typeof setInterval> | null = null
+    let ws: WebSocket | null = null
+    let alive = true
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+    let attempts = 0
 
-    const loadStory = async () => {
+    type RoomEvent =
+      | { type: "room.snapshot"; payload: { room_snapshot: RoomSnapshot; progress: RoomProgressResponse } }
+      | { type: "room.expired" }
+      | { type: string; payload?: unknown }
+
+    const loadStoryOnce = async (roundId: string) => {
       try {
-        if (!active) return
-        setStatus((prev) => (prev === "ready" ? "ready" : "loading"))
         const response = await fetch(
-          `${API_BASE_URL}/v1/rooms/${multiplayerSession.roomCode}/rounds/${multiplayerSession.roundId}/story`
+          `${API_BASE_URL}/v1/rooms/${multiplayerSession.roomCode}/rounds/${roundId}/story`
         )
         if (response.status === 410) {
           router.push("/expired")
           return
         }
         if (response.status === 409) {
-          if (!active) return
-          setStatus("waiting")
+          // Rare race: snapshot arrives before story is readable. Retry once shortly.
+          setTimeout(() => {
+            if (!alive) return
+            void loadStoryOnce(roundId)
+          }, 600)
           return
         }
         if (!response.ok) throw new Error("Unable to load story.")
         const data = (await response.json()) as StoryResponse
-        if (!active) return
+        if (!alive) return
         setStory(data.rendered_story)
-        setStatus("ready")
         setError(null)
-      } catch (err) {
-        if (!active) return
-        setStatus("error")
+      } catch {
+        if (!alive) return
         setError("We couldn't load the story yet. Please try again.")
       }
     }
 
-    loadStory()
+    const connect = () => {
+      if (!alive) return
+      setError(null)
 
-    if (!isHost) {
-      timer = setInterval(loadStory, 3000)
-    }
+      const token = multiplayerSession.playerToken
+      if (!token) {
+        clearMultiplayerSession()
+        setMultiplayerSession(null)
+        setError("Missing session token. Please rejoin the room.")
+        return
+      }
+      const url = new URL(wsBaseUrl())
+      url.searchParams.set("room_code", multiplayerSession.roomCode)
+      url.searchParams.set("token", token)
 
-    return () => {
-      active = false
-      if (timer) clearInterval(timer)
-    }
-  }, [mode, multiplayerSession, isHost])
+      ws = new WebSocket(url.toString())
 
-  useEffect(() => {
-    if (mode !== "multi" || !multiplayerSession || !isHost || story) return
+      ws.onopen = () => {
+        attempts = 0
+        heartbeatTimer = setInterval(() => {
+          try {
+            ws?.send(JSON.stringify({ type: "client.heartbeat", ts: Date.now() }))
+          } catch {
+            // no-op
+          }
+        }, 25000)
+      }
 
-    let active = true
-    let timer: ReturnType<typeof setInterval> | null = null
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as RoomEvent
+          if (payload.type === "room.expired") {
+            router.push("/expired")
+            return
+          }
+          if (payload.type !== "room.snapshot") return
 
-    const loadProgress = async () => {
-      try {
-        if (!active) return
-        const response = await fetch(
-          `${API_BASE_URL}/v1/rooms/${multiplayerSession.roomCode}/rounds/${multiplayerSession.roundId}/progress`
-        )
-        if (response.status === 410) {
+          const nextSnapshot = payload.payload.room_snapshot
+          const nextProgress = payload.payload.progress
+          setReadyToReveal(Boolean(nextProgress.ready_to_reveal))
+
+          // Keep local session aligned with the server (e.g., replay creates a new round_id).
+          if (
+            nextSnapshot.round_id !== multiplayerSession.roundId ||
+            nextSnapshot.template_id !== multiplayerSession.templateId ||
+            nextSnapshot.room_code !== multiplayerSession.roomCode
+          ) {
+            const nextSession = {
+              ...multiplayerSession,
+              roomCode: nextSnapshot.room_code,
+              roomId: nextSnapshot.room_id,
+              roundId: nextSnapshot.round_id,
+              templateId: nextSnapshot.template_id ?? null,
+            }
+            saveMultiplayerSession(nextSession)
+            setMultiplayerSession(nextSession)
+
+            if (nextSnapshot.round_id !== multiplayerSession.roundId && nextSnapshot.room_state !== "Revealed") {
+              router.push("/prompting")
+              return
+            }
+          }
+
+          if (nextSnapshot.room_state !== "Revealed" && storyValueRef.current) {
+            // New round started or host ended replay; clear the revealed view.
+            setStory(null)
+          }
+
+          if (nextSnapshot.room_state === "Revealed" && !storyValueRef.current) {
+            void loadStoryOnce(nextSnapshot.round_id)
+          }
+        } catch {
+          // ignore malformed events
+        }
+      }
+
+      const scheduleReconnect = () => {
+        if (!alive) return
+        attempts += 1
+        const backoff = Math.min(1000 * 2 ** attempts, 10000)
+        reconnectTimer = setTimeout(connect, backoff)
+      }
+
+      ws.onerror = () => {
+        if (heartbeatTimer) clearInterval(heartbeatTimer)
+        setError("Connection lost. Reconnecting…")
+        scheduleReconnect()
+      }
+
+      ws.onclose = (event) => {
+        if (heartbeatTimer) clearInterval(heartbeatTimer)
+        if (event.code === 4404 || event.code === 4410) {
+          clearMultiplayerSession()
+          setMultiplayerSession(null)
           router.push("/expired")
           return
         }
-        if (!response.ok) throw new Error("Unable to load progress.")
-        const data = (await response.json()) as RoomProgressResponse
-        if (!active) return
-        setReadyToReveal(data.ready_to_reveal)
-      } catch {
-        if (!active) return
-        setReadyToReveal(false)
+        if (event.code === 4400 || event.code === 4403) {
+          clearMultiplayerSession()
+          setMultiplayerSession(null)
+          router.push("/room")
+          return
+        }
+        setError("Connection lost. Reconnecting…")
+        scheduleReconnect()
       }
     }
 
-    loadProgress()
-    timer = setInterval(loadProgress, 3000)
+    connect()
 
     return () => {
-      active = false
-      if (timer) clearInterval(timer)
+      alive = false
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (heartbeatTimer) clearInterval(heartbeatTimer)
+      try {
+        ws?.close()
+      } catch {
+        // no-op
+      }
     }
-  }, [mode, multiplayerSession, isHost, story])
+  }, [mode, multiplayerSession, router])
 
   useEffect(() => {
     if (mode !== "multi" || !multiplayerSession || !story) {
-      setTtsJobId(null)
-      setTtsStatus("idle")
-      setTtsPlayback("idle")
-      setTtsAudioUrl(null)
-      setTtsError(null)
-      setTtsFromCache(false)
       return
     }
 
+    const TERMINAL_STATUSES = new Set(["ready", "from_cache", "blocked"])
     let active = true
     let timer: ReturnType<typeof setInterval> | null = null
 
@@ -303,6 +396,10 @@ export default function RevealClient() {
         setTtsAudioUrl(normalizeAudioUrl(data.audio_url))
         setTtsError(data.error_message ?? null)
         setTtsFromCache(Boolean(data.from_cache))
+        if (data.status && TERMINAL_STATUSES.has(data.status) && timer) {
+          clearInterval(timer)
+          timer = null
+        }
       } catch {
         if (!active) return
         setTtsStatus((prev) => (prev === "idle" ? "idle" : prev))
@@ -316,7 +413,39 @@ export default function RevealClient() {
       active = false
       if (timer) clearInterval(timer)
     }
-  }, [mode, multiplayerSession, story])
+  }, [mode, multiplayerSession, story, router])
+
+  useEffect(() => {
+    if (mode !== "solo" || !ttsJobId) return
+
+    const TERMINAL_STATUSES = new Set(["ready", "from_cache", "blocked", "error"])
+    if (TERMINAL_STATUSES.has(ttsStatus)) return
+
+    let active = true
+    const timer = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/v1/tts/jobs/${ttsJobId}`)
+        if (!response.ok) return
+        const data = (await response.json()) as TTSStatusResponse
+        if (!active) return
+        setTtsStatus(data.status ?? ttsStatus)
+        setTtsPlayback(data.playback_state ?? ttsPlayback)
+        setTtsAudioUrl(normalizeAudioUrl(data.audio_url))
+        setTtsError(data.error_message ?? null)
+        setTtsFromCache(Boolean(data.from_cache))
+        if (data.status && TERMINAL_STATUSES.has(data.status)) {
+          clearInterval(timer)
+        }
+      } catch {
+        // retry on next tick
+      }
+    }, 2500)
+
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [mode, ttsJobId, ttsStatus])
 
   useEffect(() => {
     if (!audioRef.current) return
@@ -361,6 +490,12 @@ export default function RevealClient() {
         }
         return
       }
+      const hostToken = multiplayerSession.hostToken
+      if (!hostToken) {
+        setShareStatus("error")
+        setShareError("Missing host token. Please return to the lobby and create a new room.")
+        return
+      }
       setShareStatus("loading")
       setShareError(null)
       const response = await fetch(
@@ -368,7 +503,7 @@ export default function RevealClient() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ host_token: multiplayerSession.playerToken }),
+          body: JSON.stringify({ host_token: hostToken }),
         }
       )
       if (response.status === 410) {
@@ -392,6 +527,12 @@ export default function RevealClient() {
   const requestNarration = async () => {
     if (!multiplayerSession) return
     try {
+      const hostToken = multiplayerSession.hostToken
+      if (!hostToken) {
+        setTtsStatus("error")
+        setTtsError("Missing host token. Please return to the lobby and create a new room.")
+        return
+      }
       setTtsStatus("requesting")
       setTtsError(null)
       const response = await fetch(
@@ -399,7 +540,7 @@ export default function RevealClient() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ host_token: multiplayerSession.playerToken }),
+          body: JSON.stringify({ host_token: hostToken }),
         }
       )
       if (response.status === 410) {
@@ -425,18 +566,43 @@ export default function RevealClient() {
     }
   }
 
+  const requestSoloNarration = async () => {
+    if (!soloSession || !soloStory) return
+    try {
+      setTtsStatus("requesting")
+      setTtsError(null)
+      const response = await fetch(`${API_BASE_URL}/v1/tts/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          story: soloStory,
+          session_id: soloSession.roomId,
+          round_id: soloSession.roundId,
+        }),
+      })
+      if (response.status === 429) {
+        const payload = (await response.json()) as { detail?: string }
+        throw new Error(payload.detail || "Narration requests are rate limited. Please wait.")
+      }
+      if (!response.ok) throw new Error("Unable to request narration.")
+      const data = (await response.json()) as TTSStatusResponse
+      setTtsJobId(data.job_id ?? null)
+      setTtsStatus(data.status ?? "idle")
+      setTtsPlayback(data.playback_state ?? "idle")
+      setTtsAudioUrl(normalizeAudioUrl(data.audio_url))
+      setTtsError(data.error_message ?? null)
+      setTtsFromCache(Boolean(data.from_cache))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to request narration."
+      setTtsStatus("error")
+      setTtsError(message)
+    }
+  }
+
   const ttsIsReady = ttsStatus === "ready" || ttsStatus === "from_cache"
   const ttsIsWorking = ["requesting", "queued", "generating"].includes(ttsStatus)
   const ttsIsBlocked = ttsStatus === "blocked"
   const ttsIsError = ttsStatus === "error"
-
-  const ttsStatusLabel = () => {
-    if (ttsIsBlocked) return ttsError || "Narration is disabled for this round."
-    if (ttsIsError) return ttsError || "Narration failed. Try again."
-    if (ttsIsWorking) return "Generating narration..."
-    if (ttsIsReady) return ttsFromCache ? "Narration ready (cached)." : "Narration ready."
-    return "Narration hasn’t been requested yet."
-  }
 
   const handlePlay = async () => {
     if (!audioRef.current || !ttsAudioUrl) return
@@ -473,14 +639,14 @@ export default function RevealClient() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/mode"
-            className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            href="/"
+            className="btn-primary"
           >
-            Go to Mode Select
+            Return to Start
           </Link>
           <Link
             href="/room"
-            className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+            className="btn-secondary"
           >
             Go to Room Lobby
           </Link>
@@ -510,34 +676,147 @@ export default function RevealClient() {
 
         {soloReady && soloStory && (
           <div
-            className="rounded-2xl border border-slate-200 bg-white p-6 text-lg leading-relaxed shadow-sm dark:border-slate-800 dark:bg-slate-950"
+            className="story-stage text-xl leading-relaxed md:text-2xl"
             role="region"
             aria-label="Completed story"
             tabIndex={-1}
             ref={storyRef}
           >
-            {soloStory}
+            <div className="max-w-[70ch]">{soloStory}</div>
           </div>
+        )}
+
+        {soloReady && soloStory && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Story narration</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Generate an AI narration of your story.
+                </p>
+              </div>
+              {ttsIsReady && ttsAudioUrl && (
+                <a
+                  href={ttsAudioUrl}
+                  download
+                  className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                >
+                  Download audio
+                </a>
+              )}
+            </div>
+
+            <div
+              className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-200"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <p className="font-medium">{ttsStatusLabel(ttsStatus, ttsFromCache, ttsError)}</p>
+              {ttsPlayback !== "idle" && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Playback: {ttsPlayback}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              {ttsStatus === "idle" && (
+                <button
+                  type="button"
+                  onClick={requestSoloNarration}
+                  className="btn-primary"
+                >
+                  Generate narration
+                </button>
+              )}
+
+              {ttsIsError && (
+                <button
+                  type="button"
+                  onClick={requestSoloNarration}
+                  className="btn-primary"
+                >
+                  Retry narration
+                </button>
+              )}
+
+              {ttsIsWorking && (
+                <button
+                  type="button"
+                  disabled
+                  className="btn-primary"
+                >
+                  Generating…
+                </button>
+              )}
+
+              {ttsIsReady && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePlay}
+                    className="btn-primary"
+                  >
+                    {ttsPlayback === "paused" ? "Resume" : "Play"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePause}
+                    disabled={ttsPlayback !== "playing"}
+                    className="btn-secondary"
+                  >
+                    Pause
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="btn-secondary"
+                  >
+                    Stop
+                  </button>
+                </>
+              )}
+            </div>
+
+            {ttsAudioUrl && (
+              <audio
+                ref={audioRef}
+                preload="none"
+                onEnded={() => {
+                  setTtsPlayback("complete")
+                  updatePlayback("complete")
+                }}
+                className="hidden"
+              />
+            )}
+          </section>
         )}
 
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={() => {
+              setTtsJobId(null)
+              setTtsStatus("idle")
+              setTtsPlayback("idle")
+              setTtsAudioUrl(null)
+              setTtsError(null)
+              setTtsFromCache(false)
               const nextSession = restartSoloRound(soloSession)
               saveSoloSession(nextSession)
               setSoloSession(nextSession)
               router.push("/prompting")
             }}
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className="btn-primary"
           >
             Replay with New Prompts
           </button>
           <Link
-            href="/mode"
-            className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+            href="/"
+            className="btn-secondary"
           >
-            Back to Mode Select
+            Back to Start
           </Link>
         </div>
       </section>
@@ -566,21 +845,21 @@ export default function RevealClient() {
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-        Room: <span className="font-semibold text-slate-900 dark:text-slate-100">{multiplayerSession.roomCode}</span>
+      <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">
+        Room: <span className="mono-chip">{multiplayerSession.roomCode}</span>
         {" · "}
-        Round: <span className="font-semibold text-slate-900 dark:text-slate-100">{multiplayerSession.roundId}</span>
+        Round: <span className="mono-chip">{multiplayerSession.roundId}</span>
       </div>
 
       {story ? (
         <div
-          className="rounded-2xl border border-slate-200 bg-white p-6 text-lg leading-relaxed shadow-sm dark:border-slate-800 dark:bg-slate-950"
+          className="story-stage text-xl leading-relaxed md:text-2xl"
           role="region"
           aria-label="Completed story"
           tabIndex={-1}
           ref={storyRef}
         >
-          {story}
+          <div className="max-w-[70ch]">{story}</div>
         </div>
       ) : (
         <div
@@ -589,7 +868,7 @@ export default function RevealClient() {
           aria-live="polite"
           aria-atomic="true"
         >
-          {status === "waiting" || !isHost
+          {!isHost
             ? "Waiting for the host to reveal the story."
             : readyToReveal
               ? "All prompts are in. You're ready to reveal."
@@ -623,7 +902,7 @@ export default function RevealClient() {
             aria-live="polite"
             aria-atomic="true"
           >
-            <p className="font-medium">{ttsStatusLabel()}</p>
+            <p className="font-medium">{ttsStatusLabel(ttsStatus, ttsFromCache, ttsError)}</p>
             {ttsPlayback !== "idle" && (
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Playback: {ttsPlayback}
@@ -646,7 +925,7 @@ export default function RevealClient() {
               <button
                 type="button"
                 onClick={requestNarration}
-                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                className="btn-primary"
               >
                 Generate narration
               </button>
@@ -656,7 +935,7 @@ export default function RevealClient() {
               <button
                 type="button"
                 onClick={requestNarration}
-                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                className="btn-primary"
               >
                 Retry narration
               </button>
@@ -666,7 +945,7 @@ export default function RevealClient() {
               <button
                 type="button"
                 disabled
-                className="cursor-not-allowed rounded-full bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                className="btn-primary"
               >
                 Generating…
               </button>
@@ -677,7 +956,7 @@ export default function RevealClient() {
                 <button
                   type="button"
                   onClick={handlePlay}
-                  className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  className="btn-primary"
                 >
                   {ttsPlayback === "paused" ? "Resume" : "Play"}
                 </button>
@@ -685,18 +964,14 @@ export default function RevealClient() {
                   type="button"
                   onClick={handlePause}
                   disabled={ttsPlayback !== "playing"}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    ttsPlayback === "playing"
-                      ? "border border-slate-300 text-slate-700 hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
-                      : "cursor-not-allowed border border-slate-200 text-slate-400 dark:border-slate-800 dark:text-slate-500"
-                  }`}
+                  className="btn-secondary"
                 >
                   Pause
                 </button>
                 <button
                   type="button"
                   onClick={handleStop}
-                  className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                  className="btn-secondary"
                 >
                   Stop
                 </button>
@@ -719,18 +994,18 @@ export default function RevealClient() {
       )}
 
       {story && isHost && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <section className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Share the story</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-sm text-muted-foreground">
                 Generate a public link that shows the rendered story only.
               </p>
             </div>
             <button
               type="button"
               onClick={requestShare}
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+              className="btn-outline"
             >
               {shareStatus === "loading" ? "Creating..." : shareUrl ? "Copy share link" : "Create share link"}
             </button>
@@ -767,15 +1042,19 @@ export default function RevealClient() {
             type="button"
             onClick={async () => {
               if (!multiplayerSession) return
+              const hostToken = multiplayerSession.hostToken
+              if (!hostToken) {
+                setError("Missing host token. Please return to the lobby and create a new room.")
+                return
+              }
               try {
-                setStatus("loading")
                 setError(null)
                 const response = await fetch(
                   `${API_BASE_URL}/v1/rooms/${multiplayerSession.roomCode}/reveal`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ host_token: multiplayerSession.playerToken }),
+                    body: JSON.stringify({ host_token: hostToken }),
                   }
                 )
                 if (response.status === 410) {
@@ -789,19 +1068,13 @@ export default function RevealClient() {
                 if (!response.ok) throw new Error("Unable to reveal the story.")
                 const data = (await response.json()) as RevealRoomResponse
                 setStory(data.rendered_story)
-                setStatus("ready")
               } catch (err) {
                 const message = err instanceof Error ? err.message : "Unable to reveal the story."
                 setError(message)
-                setStatus("error")
               }
             }}
             disabled={!readyToReveal}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-              readyToReveal
-                ? "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                : "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-            }`}
+            className="btn-primary"
           >
             Reveal Story
           </button>
@@ -812,12 +1085,17 @@ export default function RevealClient() {
             type="button"
             onClick={async () => {
               try {
+                const hostToken = multiplayerSession.hostToken
+                if (!hostToken) {
+                  setError("Missing host token. Please return to the lobby and create a new room.")
+                  return
+                }
                 const response = await fetch(
                   `${API_BASE_URL}/v1/rooms/${multiplayerSession.roomCode}/replay`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ host_token: multiplayerSession.playerToken }),
+                    body: JSON.stringify({ host_token: hostToken }),
                   }
                 )
                 if (response.status === 410) {
@@ -835,15 +1113,15 @@ export default function RevealClient() {
                 setError(message)
               }
             }}
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className={ttsIsBlocked ? "btn-primary" : "btn-secondary"}
           >
             Replay Same Template
           </button>
         )}
 
         <Link
-          href="/room"
-          className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+          href="/lobby"
+          className="btn-secondary"
         >
           Back to Lobby
         </Link>

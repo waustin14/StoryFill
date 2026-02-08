@@ -19,7 +19,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-700"
+      className="rounded border border-input bg-background px-3 py-1 text-sm text-foreground focus-ring"
       aria-label="Toggle theme"
     >
       {isDark ? "Light mode" : "Dark mode"}

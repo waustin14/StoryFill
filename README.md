@@ -22,6 +22,12 @@ Scaffolding is in progress. Current local workflows:
 - Run migrations: `infra/scripts/migrate.sh`
 - Frontend dev server only: `npm --prefix web run dev`
 
+## Testing
+
+- Backend/worker/tts: `infra/scripts/test.sh` (runs pytest with coverage).
+- Frontend: `npm --prefix web test` (vitest + testing-library).
+- Naming: Python tests live under `api/tests`, `worker/tests`, `tts/tests`; web tests use `web/src/test/*.test.ts(x)`.
+
 ## License
 
 See `LICENSE`.

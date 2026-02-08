@@ -23,4 +23,8 @@ if [ -f "worker/requirements.txt" ]; then
   "$VENV_DIR/bin/pip" install -r worker/requirements.txt
 fi
 
+if [ -f "tts/requirements.txt" ]; then
+  "$VENV_DIR/bin/pip" install -r tts/requirements.txt
+fi
+
 echo "Python environment ready in $VENV_DIR"

@@ -1,3 +1,7 @@
+/* globals.css — StoryFill (Parchment Pop)
+   Aligned with `artifacts/ui-design/globals.css` token set and usage guidance.
+*/
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,18 +14,121 @@
   color-scheme: dark;
 }
 
-body {
-  @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100;
-}
-
 @layer base {
-  :focus-visible {
-    outline: 2px solid #0f172a;
-    outline-offset: 2px;
+  :root {
+    /* Parchment Pop — Light */
+    --background: 42 33% 97%;
+    --foreground: 222 47% 11%;
+
+    --card: 42 33% 99%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 42 33% 99%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary = Start / Reveal / Play Audio */
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    /* Secondary = Replay / Share / Cancel */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 46%;
+
+    /* Accent = reveal-only spark */
+    --accent: 35 92% 55%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 14px;
   }
 
-  .dark :focus-visible {
-    outline-color: #e2e8f0;
+  .dark {
+    /* Parchment Pop — Dark */
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 70%;
+
+    --accent: 35 92% 55%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 217 91% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Keep a default visible focus style; `.focus-ring` is preferred when feasible. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Story canvas “stage” helper (reveal-first). */
+  .story-stage {
+    @apply rounded-[calc(var(--radius)+6px)] border bg-card p-6 shadow-sm;
+    background-image:
+      radial-gradient(1200px 600px at 20% 0%, hsl(var(--accent) / 0.12), transparent 60%),
+      radial-gradient(900px 500px at 80% 10%, hsl(var(--primary) / 0.10), transparent 55%);
+  }
+
+  /* Room code / timer styling helper */
+  .mono-chip {
+    @apply font-mono text-sm tracking-[0.18em] px-3 py-1 rounded-full border bg-muted text-muted-foreground;
+  }
+
+  /* Minimal shadcn-style button helpers (until we adopt shadcn/ui components). */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition bg-primary text-primary-foreground hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60 focus-ring;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:pointer-events-none disabled:opacity-60 focus-ring;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-semibold transition hover:bg-muted disabled:pointer-events-none disabled:opacity-60 focus-ring;
   }
 }
 
@@ -35,3 +142,4 @@ body {
     scroll-behavior: auto !important;
   }
 }
+

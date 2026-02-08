@@ -32,7 +32,7 @@ export default async function SharePage({ params }: { params: { token: string } 
         </p>
         <Link
           href="/room"
-          className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          className="btn-primary"
         >
           Go to Room Lobby
         </Link>
@@ -63,13 +63,13 @@ export default async function SharePage({ params }: { params: { token: string } 
       <div className="flex flex-wrap gap-3">
         <Link
           href="/room"
-          className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+          className="btn-primary"
         >
           Start a room
         </Link>
         <Link
-          href="/mode"
-          className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          href="/templates?mode=solo"
+          className="btn-secondary"
         >
           Play solo
         </Link>
