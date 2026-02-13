@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AlertTriangle } from "lucide-react"
 
 import type { SoloSession } from "@/lib/solo-session"
 import { loadSoloSession, restartSoloRound, saveSoloSession } from "@/lib/solo-session"
@@ -43,6 +44,7 @@ export default function PromptingClient() {
   const [soloAnswers, setSoloAnswers] = useState<Record<string, string>>({})
   const [soloError, setSoloError] = useState<string | null>(null)
   const [soloValidation, setSoloValidation] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(0)
 
   useEffect(() => {
     setSession(loadSoloSession())
@@ -57,6 +59,7 @@ export default function PromptingClient() {
 
     let active = true
     async function loadPrompts() {
+      if (!multiplayer) return
       try {
         setMultiplayerStatus("loading")
         const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
@@ -137,6 +140,10 @@ export default function PromptingClient() {
   if (!session) {
     const multiplayer = loadMultiplayerSession()
     if (multiplayer) {
+      const totalPrompts = multiplayerPrompts.length
+      const currentPrompt = multiplayerPrompts[currentIndex]
+      const isLastPrompt = currentIndex === totalPrompts - 1
+
       return (
         <section className="space-y-6">
           <header className="space-y-2">
@@ -154,113 +161,150 @@ export default function PromptingClient() {
 
           {multiplayerStatus === "error" && multiplayerError && (
             <div
-              className="rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+              className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
               role="alert"
             >
-              {multiplayerError}
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <span>{multiplayerError}</span>
             </div>
           )}
 
-          {multiplayerStatus === "ready" && (
-            <div className="grid gap-4 md:grid-cols-2">
-              {multiplayerPrompts.map((prompt) => (
-                <label
-                  key={prompt.id}
-                  className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-                >
-                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                    {prompt.type}
-                  </span>
-                  <span className="text-base font-semibold">{prompt.label}</span>
-                  <input
-                    type="text"
-                    placeholder="Type your answer"
-                    value={multiplayerAnswers[prompt.id] ?? ""}
-                    maxLength={promptLimits(prompt.type).max}
-                    onChange={(event) =>
-                      setMultiplayerAnswers((prev) => ({ ...prev, [prompt.id]: event.target.value }))
-                    }
-                    aria-invalid={
-                      multiplayerValidation &&
-                      !!getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)
-                    }
-                    className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
-                      multiplayerValidation &&
-                      getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)
-                        ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
-                        : "border-slate-200 dark:border-slate-700"
-                    }`}
-                  />
-                  {multiplayerValidation &&
-                    getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type) && (
-                      <span className="text-xs text-rose-600 dark:text-rose-300">
-                        {getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)}
-                      </span>
-                    )}
-                </label>
-              ))}
-            </div>
+          {multiplayerStatus === "ready" && currentPrompt && (
+            <>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                Prompt {currentIndex + 1} of {totalPrompts}
+              </p>
+
+              <label
+                key={currentPrompt.id}
+                className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+              >
+                <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  {currentPrompt.type}
+                </span>
+                <span className="text-base font-semibold">{currentPrompt.label}</span>
+                <input
+                  type="text"
+                  placeholder="Type your answer"
+                  value={multiplayerAnswers[currentPrompt.id] ?? ""}
+                  maxLength={promptLimits(currentPrompt.type).max}
+                  onChange={(event) =>
+                    setMultiplayerAnswers((prev) => ({ ...prev, [currentPrompt.id]: event.target.value }))
+                  }
+                  aria-invalid={
+                    multiplayerValidation &&
+                    !!getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type)
+                  }
+                  className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
+                    multiplayerValidation &&
+                    getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type)
+                      ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
+                />
+                {multiplayerValidation &&
+                  getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type) && (
+                    <span className="text-xs text-rose-600 dark:text-rose-300">
+                      {getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type)}
+                    </span>
+                  )}
+              </label>
+            </>
           )}
 
-          <button
-            type="button"
-            onClick={async () => {
-              const multiplayer = loadMultiplayerSession()
-              if (!multiplayer) return
-              try {
-                setMultiplayerError(null)
-                setMultiplayerValidation(true)
-                const invalidPrompt = multiplayerPrompts.find((prompt) =>
-                  getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)
-                )
-                if (invalidPrompt) {
-                  const issue = getPromptIssue(
-                    multiplayerAnswers[invalidPrompt.id] ?? "",
-                    invalidPrompt.type
-                  )
-                  setMultiplayerError(`One of your prompts needs attention. ${issue}`)
-                  setMultiplayerSubmitStatus("idle")
-                  return
-                }
-                setMultiplayerSubmitStatus("submitting")
-                const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
-                for (const prompt of multiplayerPrompts) {
-                  const response = await fetch(
-                    `${apiBase}/v1/rooms/${multiplayer.roomCode}/rounds/${multiplayer.roundId}/prompts/${prompt.id}:submit`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        player_id: multiplayer.playerId,
-                        player_token: multiplayer.playerToken,
-                        value: multiplayerAnswers[prompt.id] ?? "",
-                      }),
-                    }
-                  )
-                  if (response.status === 410) {
-                    router.push("/expired")
+          <div className="flex flex-wrap gap-3">
+            {currentIndex > 0 && (
+              <button
+                type="button"
+                onClick={() => setCurrentIndex((prev) => prev - 1)}
+                className="btn-secondary"
+              >
+                Back
+              </button>
+            )}
+
+            {multiplayerStatus === "ready" && !isLastPrompt && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMultiplayerValidation(true)
+                  const prompt = multiplayerPrompts[currentIndex]
+                  if (prompt && getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)) {
                     return
                   }
-                  if (!response.ok) {
-                    const payload = (await response.json()) as { detail?: string }
-                    if (response.status === 429) {
-                      throw new Error(payload.detail || "You're submitting too quickly. Please wait.")
+                  setMultiplayerValidation(false)
+                  setCurrentIndex((prev) => prev + 1)
+                }}
+                className="btn-primary"
+              >
+                Next
+              </button>
+            )}
+
+            {multiplayerStatus === "ready" && isLastPrompt && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const multiplayer = loadMultiplayerSession()
+                  if (!multiplayer) return
+                  try {
+                    setMultiplayerError(null)
+                    setMultiplayerValidation(true)
+                    const invalidPrompt = multiplayerPrompts.find((prompt) =>
+                      getPromptIssue(multiplayerAnswers[prompt.id] ?? "", prompt.type)
+                    )
+                    if (invalidPrompt) {
+                      const invalidIndex = multiplayerPrompts.indexOf(invalidPrompt)
+                      setCurrentIndex(invalidIndex)
+                      const issue = getPromptIssue(
+                        multiplayerAnswers[invalidPrompt.id] ?? "",
+                        invalidPrompt.type
+                      )
+                      setMultiplayerError(`One of your prompts needs attention. ${issue}`)
+                      setMultiplayerSubmitStatus("idle")
+                      return
                     }
-                    throw new Error(payload.detail || "Unable to submit prompts.")
+                    setMultiplayerSubmitStatus("submitting")
+                    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
+                    for (const prompt of multiplayerPrompts) {
+                      const response = await fetch(
+                        `${apiBase}/v1/rooms/${multiplayer.roomCode}/rounds/${multiplayer.roundId}/prompts/${prompt.id}:submit`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            player_id: multiplayer.playerId,
+                            player_token: multiplayer.playerToken,
+                            value: multiplayerAnswers[prompt.id] ?? "",
+                          }),
+                        }
+                      )
+                      if (response.status === 410) {
+                        router.push("/expired")
+                        return
+                      }
+                      if (!response.ok) {
+                        const payload = (await response.json()) as { detail?: string }
+                        if (response.status === 429) {
+                          throw new Error(payload.detail || "You're submitting too quickly. Please wait.")
+                        }
+                        throw new Error(payload.detail || "Unable to submit prompts.")
+                      }
+                    }
+                    setMultiplayerSubmitStatus("done")
+                    router.push("/waiting")
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : "Unable to submit prompts. Please try again."
+                    setMultiplayerError(message)
+                    setMultiplayerSubmitStatus("idle")
                   }
-                }
-                setMultiplayerSubmitStatus("done")
-                router.push("/waiting")
-              } catch (err) {
-                const message = err instanceof Error ? err.message : "Unable to submit prompts. Please try again."
-                setMultiplayerError(message)
-                setMultiplayerSubmitStatus("idle")
-              }
-            }}
-            className="btn-primary"
-          >
-            {multiplayerSubmitStatus === "submitting" ? "Submitting..." : "Submit Prompts"}
-          </button>
+                }}
+                className="btn-primary"
+              >
+                {multiplayerSubmitStatus === "submitting" ? "Submitting..." : "Submit Prompts"}
+              </button>
+            )}
+          </div>
         </section>
       )
     }
@@ -281,6 +325,11 @@ export default function PromptingClient() {
     )
   }
 
+  const soloPrompts = session.prompts
+  const soloTotalPrompts = soloPrompts.length
+  const soloCurrentPrompt = soloPrompts[currentIndex]
+  const soloIsLastPrompt = currentIndex === soloTotalPrompts - 1
+
   return (
     <section className="space-y-6">
       <header className="space-y-2">
@@ -296,82 +345,120 @@ export default function PromptingClient() {
         Round: <span className="font-semibold text-slate-900 dark:text-slate-100">{session.roundId}</span>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {session.prompts.map((prompt) => (
-          <label
-            key={prompt.id}
-            className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-          >
-            <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-              {prompt.type}
+      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+        Prompt {currentIndex + 1} of {soloTotalPrompts}
+      </p>
+
+      {soloCurrentPrompt && (
+        <label
+          key={soloCurrentPrompt.id}
+          className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+        >
+          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+            {soloCurrentPrompt.type}
+          </span>
+          <span className="text-base font-semibold">{soloCurrentPrompt.label}</span>
+          <input
+            type="text"
+            placeholder="Type your answer"
+            value={soloAnswers[soloCurrentPrompt.id] ?? ""}
+            maxLength={promptLimits(soloCurrentPrompt.type).max}
+            onChange={(event) =>
+              setSoloAnswers((prev) => ({ ...prev, [soloCurrentPrompt.id]: event.target.value }))
+            }
+            aria-invalid={soloValidation && !!getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type)}
+            className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
+              soloValidation && getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type)
+                ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
+                : "border-slate-200 dark:border-slate-700"
+            }`}
+          />
+          {soloValidation && getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type) && (
+            <span className="text-xs text-rose-600 dark:text-rose-300">
+              {getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type)}
             </span>
-            <span className="text-base font-semibold">{prompt.label}</span>
-            <input
-              type="text"
-              placeholder="Type your answer"
-              value={soloAnswers[prompt.id] ?? ""}
-              maxLength={promptLimits(prompt.type).max}
-              onChange={(event) =>
-                setSoloAnswers((prev) => ({ ...prev, [prompt.id]: event.target.value }))
-              }
-              aria-invalid={soloValidation && !!getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)}
-              className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
-                soloValidation && getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)
-                  ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
-                  : "border-slate-200 dark:border-slate-700"
-              }`}
-            />
-            {soloValidation && getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type) && (
-              <span className="text-xs text-rose-600 dark:text-rose-300">
-                {getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)}
-              </span>
-            )}
-          </label>
-        ))}
-      </div>
+          )}
+        </label>
+      )}
 
       {soloError && (
         <div
-          className="rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
           role="alert"
         >
-          {soloError}
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{soloError}</span>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => {
-          setSoloError(null)
-          setSoloValidation(true)
-          const invalidPrompt = session.prompts.find(
-            (prompt) => !!getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)
-          )
-          if (invalidPrompt) {
-            const issue = getPromptIssue(soloAnswers[invalidPrompt.id] ?? "", invalidPrompt.type)
-            setSoloError(issue || "Please update the highlighted prompt.")
-            return
-          }
-          const updatedSession = {
-            ...session,
-            prompts: session.prompts.map((prompt) => ({
-              ...prompt,
-              value: soloAnswers[prompt.id] ?? "",
-            })),
-          }
-          saveSoloSession(updatedSession)
-          setSession(updatedSession)
-          router.push("/reveal")
-        }}
-        disabled={!soloReady}
-        className="btn-primary"
-      >
-        Submit Prompts
-      </button>
+      <div className="flex flex-wrap gap-3">
+        {currentIndex > 0 && (
+          <button
+            type="button"
+            onClick={() => setCurrentIndex((prev) => prev - 1)}
+            className="btn-secondary"
+          >
+            Back
+          </button>
+        )}
+
+        {!soloIsLastPrompt && (
+          <button
+            type="button"
+            onClick={() => {
+              setSoloValidation(true)
+              const prompt = soloPrompts[currentIndex]
+              if (prompt && getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)) {
+                return
+              }
+              setSoloValidation(false)
+              setCurrentIndex((prev) => prev + 1)
+            }}
+            className="btn-primary"
+          >
+            Next
+          </button>
+        )}
+
+        {soloIsLastPrompt && (
+          <button
+            type="button"
+            onClick={() => {
+              setSoloError(null)
+              setSoloValidation(true)
+              const invalidPrompt = session.prompts.find(
+                (prompt) => !!getPromptIssue(soloAnswers[prompt.id] ?? "", prompt.type)
+              )
+              if (invalidPrompt) {
+                const invalidIndex = session.prompts.indexOf(invalidPrompt)
+                setCurrentIndex(invalidIndex)
+                const issue = getPromptIssue(soloAnswers[invalidPrompt.id] ?? "", invalidPrompt.type)
+                setSoloError(issue || "Please update the highlighted prompt.")
+                return
+              }
+              const updatedSession = {
+                ...session,
+                prompts: session.prompts.map((prompt) => ({
+                  ...prompt,
+                  value: soloAnswers[prompt.id] ?? "",
+                })),
+              }
+              saveSoloSession(updatedSession)
+              setSession(updatedSession)
+              router.push("/reveal")
+            }}
+            disabled={!soloReady}
+            className="btn-primary"
+          >
+            Submit Prompts
+          </button>
+        )}
+      </div>
 
       <button
         type="button"
         onClick={() => {
+          setCurrentIndex(0)
           const nextSession = restartSoloRound(session)
           saveSoloSession(nextSession)
           setSession(nextSession)

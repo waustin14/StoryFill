@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AlertTriangle, Pause, Play, Share2, Sparkles, Square, Volume2 } from "lucide-react"
 
 import type { SoloSession } from "@/lib/solo-session"
 import { loadSoloSession, restartSoloRound, saveSoloSession } from "@/lib/solo-session"
@@ -286,8 +287,9 @@ export default function RevealClient() {
           }
           if (payload.type !== "room.snapshot") return
 
-          const nextSnapshot = payload.payload.room_snapshot
-          const nextProgress = payload.payload.progress
+          const snapshotEvent = payload as { type: "room.snapshot"; payload: { room_snapshot: RoomSnapshot; progress: RoomProgressResponse } }
+          const nextSnapshot = snapshotEvent.payload.room_snapshot
+          const nextProgress = snapshotEvent.payload.progress
           setReadyToReveal(Boolean(nextProgress.ready_to_reveal))
           if (nextSnapshot.round_index != null) setRoundIndex(nextSnapshot.round_index)
 
@@ -730,6 +732,7 @@ export default function RevealClient() {
                   onClick={requestSoloNarration}
                   className="btn-primary"
                 >
+                  <Volume2 className="mr-2 h-4 w-4" />
                   Generate narration
                 </button>
               )}
@@ -740,6 +743,7 @@ export default function RevealClient() {
                   onClick={requestSoloNarration}
                   className="btn-primary"
                 >
+                  <Volume2 className="mr-2 h-4 w-4" />
                   Retry narration
                 </button>
               )}
@@ -761,6 +765,7 @@ export default function RevealClient() {
                     onClick={handlePlay}
                     className="btn-primary"
                   >
+                    <Play className="mr-2 h-4 w-4" />
                     {ttsPlayback === "paused" ? "Resume" : "Play"}
                   </button>
                   <button
@@ -769,6 +774,7 @@ export default function RevealClient() {
                     disabled={ttsPlayback !== "playing"}
                     className="btn-secondary"
                   >
+                    <Pause className="mr-2 h-4 w-4" />
                     Pause
                   </button>
                   <button
@@ -776,6 +782,7 @@ export default function RevealClient() {
                     onClick={handleStop}
                     className="btn-secondary"
                   >
+                    <Square className="mr-2 h-4 w-4" />
                     Stop
                   </button>
                 </>
@@ -841,10 +848,11 @@ export default function RevealClient() {
 
       {error && (
         <div
-          className="rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
           role="alert"
         >
-          {error}
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -930,6 +938,7 @@ export default function RevealClient() {
                 onClick={requestNarration}
                 className="btn-primary"
               >
+                <Volume2 className="mr-2 h-4 w-4" />
                 Generate narration
               </button>
             )}
@@ -940,6 +949,7 @@ export default function RevealClient() {
                 onClick={requestNarration}
                 className="btn-primary"
               >
+                <Volume2 className="mr-2 h-4 w-4" />
                 Retry narration
               </button>
             )}
@@ -961,6 +971,7 @@ export default function RevealClient() {
                   onClick={handlePlay}
                   className="btn-primary"
                 >
+                  <Play className="mr-2 h-4 w-4" />
                   {ttsPlayback === "paused" ? "Resume" : "Play"}
                 </button>
                 <button
@@ -969,6 +980,7 @@ export default function RevealClient() {
                   disabled={ttsPlayback !== "playing"}
                   className="btn-secondary"
                 >
+                  <Pause className="mr-2 h-4 w-4" />
                   Pause
                 </button>
                 <button
@@ -976,6 +988,7 @@ export default function RevealClient() {
                   onClick={handleStop}
                   className="btn-secondary"
                 >
+                  <Square className="mr-2 h-4 w-4" />
                   Stop
                 </button>
               </>
@@ -1010,16 +1023,18 @@ export default function RevealClient() {
               onClick={requestShare}
               className="btn-outline"
             >
+              <Share2 className="mr-2 h-4 w-4" />
               {shareStatus === "loading" ? "Creating..." : shareUrl ? "Copy share link" : "Create share link"}
             </button>
           </div>
 
           {shareError && (
             <div
-              className="mt-4 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+              className="mt-4 flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
               role="alert"
             >
-              {shareError}
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <span>{shareError}</span>
             </div>
           )}
 
@@ -1079,6 +1094,7 @@ export default function RevealClient() {
             disabled={!readyToReveal}
             className="btn-primary"
           >
+            <Sparkles className="mr-2 h-4 w-4" />
             Reveal Story
           </button>
         )}

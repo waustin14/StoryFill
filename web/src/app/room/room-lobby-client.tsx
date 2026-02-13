@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { AlertTriangle } from "lucide-react"
 
 import { saveMultiplayerSession } from "@/lib/multiplayer-session"
 
@@ -174,10 +175,11 @@ export default function RoomLobbyClient() {
 
       {error && (
         <div
-          className="rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
           role="alert"
         >
-          {error}
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 

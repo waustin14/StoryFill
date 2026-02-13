@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { AlertTriangle } from "lucide-react"
 
 import type { MultiplayerSession } from "@/lib/multiplayer-session"
 import { clearMultiplayerSession, loadMultiplayerSession, saveMultiplayerSession } from "@/lib/multiplayer-session"
@@ -43,13 +44,18 @@ export default function TemplateSelectClient() {
       setMultiplayerSession(null)
     } else {
       setMultiplayerSession(session)
+      // Non-host players should go straight to the lobby
+      if (session && session.role !== "host") {
+        router.push("/lobby")
+        return
+      }
     }
     if (session?.templateId) {
       setSelectedId(session.templateId)
     } else if (stored) {
       setSelectedId(stored)
     }
-  }, [soloOverride])
+  }, [soloOverride, router])
 
   useEffect(() => {
     let active = true
@@ -180,42 +186,13 @@ export default function TemplateSelectClient() {
         </p>
       </header>
 
-      {selectionLocked && (
-        <div
-          className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300"
-          role="status"
-          aria-live="polite"
-        >
-          <p>You joined as a player. The host will confirm the template selection.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                clearMultiplayerSession()
-                setMultiplayerSession(null)
-                setForceSolo(true)
-              }}
-              className="btn-secondary"
-            >
-              Switch to Solo
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/lobby")}
-              className="btn-outline"
-            >
-              Back to Lobby
-            </button>
-          </div>
-        </div>
-      )}
-
       {submitError && (
         <div
-          className="rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
           role="alert"
         >
-          {submitError}
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{submitError}</span>
         </div>
       )}
 
@@ -231,10 +208,11 @@ export default function TemplateSelectClient() {
 
       {status === "error" && (
         <div
-          className="rounded-lg border border-rose-300 bg-rose-50 p-6 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-6 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
           role="alert"
         >
-          We couldn’t load templates right now. Please refresh and try again.
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>We couldn&apos;t load templates right now. Please refresh and try again.</span>
         </div>
       )}
 

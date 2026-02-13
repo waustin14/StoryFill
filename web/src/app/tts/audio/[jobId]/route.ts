@@ -5,8 +5,9 @@ const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://localhost:8000"
 
-export async function GET(_req: NextRequest, { params }: { params: { jobId: string } }) {
-  const response = await fetch(`${apiBaseUrl}/v1/tts/jobs/${params.jobId}/audio`)
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
+  const { jobId } = await params
+  const response = await fetch(`${apiBaseUrl}/v1/tts/jobs/${jobId}/audio`)
   if (!response.ok) {
     return new Response("Audio not available.", { status: response.status })
   }

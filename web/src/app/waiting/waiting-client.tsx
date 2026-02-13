@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AlertTriangle, Sparkles } from "lucide-react"
 
 import type { MultiplayerSession } from "@/lib/multiplayer-session"
 import {
@@ -64,8 +65,10 @@ export default function WaitingClient() {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null)
-  const [moderationStatus, setModerationStatus] = useState<"idle" | "loading" | "error">("idle")
+  const [moderationStatus, setModerationStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
   const [moderationError, setModerationError] = useState<string | null>(null)
+  const [kickTarget, setKickTarget] = useState<{ id: string; name: string } | null>(null)
+  const kickDialogRef = useRef<HTMLDialogElement | null>(null)
 
   const isHost = useMemo(() => session?.role === "host", [session])
 
@@ -181,8 +184,9 @@ export default function WaitingClient() {
             return
           }
           if (payload.type === "room.snapshot") {
-            setSnapshot(payload.payload.room_snapshot)
-            setProgress(payload.payload.progress)
+            const snapshotEvent = payload as { type: "room.snapshot"; payload: { room_snapshot: RoomSnapshot; progress: RoomProgressResponse } }
+            setSnapshot(snapshotEvent.payload.room_snapshot)
+            setProgress(snapshotEvent.payload.progress)
             setStatus("ready")
             setError(null)
             setModerationStatus("ready")
@@ -356,10 +360,11 @@ export default function WaitingClient() {
 
       {status === "error" && error && (
         <div
-          className="rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
           role="alert"
         >
-          {error}
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -451,6 +456,7 @@ export default function WaitingClient() {
                   className={readyToReveal ? "btn-primary" : "btn-primary pointer-events-none"}
                   aria-disabled={!readyToReveal}
                 >
+                  <Sparkles className="mr-2 h-4 w-4" />
                   Reveal Story
                 </Link>
               ) : (
@@ -483,10 +489,11 @@ export default function WaitingClient() {
 
               {moderationStatus === "error" && moderationError && (
                 <div
-                  className="mt-4 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+                  className="mt-4 flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
                   role="alert"
                 >
-                  {moderationError}
+                  <AlertTriangle className="h-5 w-5 shrink-0" />
+                  <span>{moderationError}</span>
                 </div>
               )}
 
@@ -531,7 +538,10 @@ export default function WaitingClient() {
                         <span className="font-medium text-foreground">{player.display_name}</span>
                         <button
                           type="button"
-                          onClick={() => kickPlayer(player.id)}
+                          onClick={() => {
+                            setKickTarget({ id: player.id, name: player.display_name })
+                            kickDialogRef.current?.showModal()
+                          }}
                           disabled={moderationStatus === "loading"}
                           className={`rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:border-rose-400 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-200 ${
                             moderationStatus === "loading" ? "cursor-not-allowed opacity-70" : ""
@@ -548,6 +558,42 @@ export default function WaitingClient() {
           )}
         </div>
       </div>
+
+      <dialog
+        ref={kickDialogRef}
+        className="rounded-2xl border bg-card p-6 shadow-lg backdrop:bg-black/40"
+        onClose={() => setKickTarget(null)}
+      >
+        <h2 className="text-lg font-semibold">Remove player?</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Remove {kickTarget?.name} from the room?
+        </p>
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setKickTarget(null)
+              kickDialogRef.current?.close()
+            }}
+            className="btn-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (kickTarget) {
+                kickPlayer(kickTarget.id)
+              }
+              setKickTarget(null)
+              kickDialogRef.current?.close()
+            }}
+            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+          >
+            Remove
+          </button>
+        </div>
+      </dialog>
     </section>
   )
 }

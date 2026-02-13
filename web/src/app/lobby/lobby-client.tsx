@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AlertTriangle, CheckCircle2, Copy, Play } from "lucide-react"
 
 import type { MultiplayerSession } from "@/lib/multiplayer-session"
 import { clearMultiplayerSession, loadMultiplayerSession } from "@/lib/multiplayer-session"
@@ -45,6 +46,7 @@ export default function LobbyClient() {
   const [status, setStatus] = useState<"idle" | "connecting" | "ready" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const startStatusRef = useRef<"idle" | "starting">("idle")
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle")
 
   const isHost = useMemo(() => session?.role === "host", [session])
 
@@ -105,12 +107,13 @@ export default function LobbyClient() {
             return
           }
           if (payload.type === "room.snapshot") {
-            setSnapshot(payload.payload.room_snapshot)
-            setProgress(payload.payload.progress)
+            const snapshotEvent = payload as { type: "room.snapshot"; payload: { room_snapshot: RoomSnapshot; progress: RoomProgressResponse } }
+            setSnapshot(snapshotEvent.payload.room_snapshot)
+            setProgress(snapshotEvent.payload.progress)
             setStatus("ready")
             setError(null)
 
-            const nextState = payload.payload.room_snapshot.room_state
+            const nextState = snapshotEvent.payload.room_snapshot.room_state
             if (nextState !== "LobbyOpen") {
               router.push("/prompting")
             }
@@ -262,15 +265,40 @@ export default function LobbyClient() {
       </header>
 
       {error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm">
         <div className="space-y-1">
           <p className="text-sm font-semibold">Room code</p>
-          <p className="mono-chip inline-flex">{roomCode}</p>
+          <div className="flex items-center gap-2">
+            <p className="mono-chip inline-flex">{roomCode}</p>
+            <button
+              type="button"
+              onClick={async () => {
+                const url = `${window.location.origin}/room?code=${roomCode}`
+                await navigator.clipboard.writeText(url)
+                setCopyStatus("copied")
+                setTimeout(() => setCopyStatus("idle"), 2000)
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+            >
+              {copyStatus === "copied" ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy invite link
+                </>
+              )}
+            </button>
+          </div>
         </div>
         <div className="text-sm text-muted-foreground">
           {status === "connecting" ? "Connecting…" : status === "error" ? "Reconnecting…" : "Live"}
@@ -315,6 +343,7 @@ export default function LobbyClient() {
         {isHost && (
           <div className="mt-5 space-y-2">
             <button type="button" onClick={startGame} className="btn-primary" disabled={!canStart}>
+              <Play className="mr-2 h-4 w-4" />
               Start game
             </button>
             {!canStart && (

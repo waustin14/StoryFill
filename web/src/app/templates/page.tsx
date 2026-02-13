@@ -1,5 +1,10 @@
+import { Suspense } from "react"
 import TemplateSelectClient from "./template-select-client"
 
 export default function TemplateSelectPage() {
-  return <TemplateSelectClient />
+  return (
+    <Suspense>
+      <TemplateSelectClient />
+    </Suspense>
+  )
 }
