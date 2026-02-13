@@ -39,11 +39,12 @@ type RoomSnapshot = {
   room_id: string
   room_code: string
   round_id: string
+  round_index: number
   state_version: number
   room_state: string
   locked: boolean
   template_id: string
-  players: Array<{ id: string; display_name: string }>
+  players: Array<{ id: string; display_name: string; is_host?: boolean }>
 }
 
 type ReplayRoomResponse = {
@@ -106,6 +107,7 @@ export default function RevealClient() {
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareExpiresAt, setShareExpiresAt] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
+  const [roundIndex, setRoundIndex] = useState<number>(0)
 
   useEffect(() => {
     setSoloSession(loadSoloSession())
@@ -287,6 +289,7 @@ export default function RevealClient() {
           const nextSnapshot = payload.payload.room_snapshot
           const nextProgress = payload.payload.progress
           setReadyToReveal(Boolean(nextProgress.ready_to_reveal))
+          if (nextSnapshot.round_index != null) setRoundIndex(nextSnapshot.round_index)
 
           // Keep local session aligned with the server (e.g., replay creates a new round_id).
           if (
@@ -848,7 +851,7 @@ export default function RevealClient() {
       <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">
         Room: <span className="mono-chip">{multiplayerSession.roomCode}</span>
         {" · "}
-        Round: <span className="mono-chip">{multiplayerSession.roundId}</span>
+        Round {roundIndex + 1}
       </div>
 
       {story ? (

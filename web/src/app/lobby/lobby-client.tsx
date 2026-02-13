@@ -11,11 +11,12 @@ type RoomSnapshot = {
   room_id: string
   room_code: string
   round_id: string
+  round_index: number
   state_version: number
   room_state: string
   locked: boolean
   template_id: string
-  players: Array<{ id: string; display_name: string }>
+  players: Array<{ id: string; display_name: string; is_host?: boolean }>
 }
 
 type RoomProgressResponse = {
@@ -298,7 +299,14 @@ export default function LobbyClient() {
         <div className="mt-4 grid gap-2">
           {players.map((player) => (
             <div key={player.id} className="flex items-center justify-between rounded-lg border bg-background px-4 py-3">
-              <span className="font-medium">{player.display_name}</span>
+              <span className="font-medium">
+                {player.display_name}
+                {player.is_host && (
+                  <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                    Host
+                  </span>
+                )}
+              </span>
               <span className="text-xs text-muted-foreground">Joined</span>
             </div>
           ))}

@@ -39,10 +39,11 @@ type RoomSnapshot = {
   room_id: string
   room_code: string
   round_id: string
+  round_index: number
   state_version: number
   locked: boolean
   template_id: string
-  players: Array<{ id: string; display_name: string }>
+  players: Array<{ id: string; display_name: string; is_host?: boolean }>
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"

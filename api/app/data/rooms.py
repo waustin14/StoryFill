@@ -3,7 +3,7 @@ from enum import Enum
 import json
 import threading
 import time
-from secrets import token_urlsafe
+from secrets import choice, token_urlsafe
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -28,6 +28,8 @@ DISCONNECT_GRACE = timedelta(seconds=30)
 PROMPTS_PER_PLAYER = 3
 MAX_PLAYERS = 6
 MAX_DISPLAY_NAME_LENGTH = 30
+_ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+_ROOM_CODE_LENGTH = 6
 
 
 def _now() -> datetime:
@@ -403,7 +405,7 @@ def start_expiry_sweeper() -> None:
 def create_room(template_id: Optional[str] = None) -> Room:
   template = get_template_definition(template_id) or default_template_definition()
   room_id = _new_id("room")
-  room_code = _new_id("code").split("_", maxsplit=1)[1].upper()[:6]
+  room_code = "".join(choice(_ROOM_CODE_ALPHABET) for _ in range(_ROOM_CODE_LENGTH))
   host_token = create_host_token(room_id, room_code, ROOM_TTL_SECONDS, _new_id("jti"))
   room = Room(
     id=room_id,

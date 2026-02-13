@@ -77,12 +77,14 @@ class ReconnectPlayerRequest(BaseModel):
 class PlayerSnapshot(BaseModel):
   id: str
   display_name: str
+  is_host: bool = False
 
 
 class RoomSnapshot(BaseModel):
   room_id: str
   room_code: str
   round_id: str
+  round_index: int
   state_version: int
   room_state: str
   locked: bool
@@ -324,11 +326,15 @@ def _room_snapshot(room) -> RoomSnapshot:
     room_id=room.id,
     room_code=room.code,
     round_id=room.round_id,
+    round_index=room.round_index,
     state_version=room.state_version,
     room_state=getattr(room, "state", "LobbyOpen"),
     locked=room.locked,
     template_id=room.template_id,
-    players=[PlayerSnapshot(id=p.id, display_name=p.display_name) for p in room.players],
+    players=[
+      PlayerSnapshot(id=p.id, display_name=p.display_name, is_host=(i == 0))
+      for i, p in enumerate(room.players)
+    ],
   )
 
 
