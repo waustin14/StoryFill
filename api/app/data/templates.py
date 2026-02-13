@@ -10,6 +10,7 @@ class TemplateSummary(BaseModel):
   title: str
   genre: str
   content_rating: str
+  description: str
 
 
 class TemplateSlot(BaseModel):
@@ -38,6 +39,7 @@ class TemplateAuthoringDefinition(BaseModel):
   title: str
   genre: str
   content_rating: str
+  description: str
   story: str
   custom_slots: Optional[dict[str, CustomSlot]] = None
   narration_hints: list[str] = []
@@ -49,6 +51,7 @@ def _resolve(authoring: TemplateAuthoringDefinition) -> TemplateDefinition:
     title=authoring.title,
     genre=authoring.genre,
     content_rating=authoring.content_rating,
+    description=authoring.description,
     slots=[TemplateSlot(**s) for s in resolve_slots(authoring.story, authoring.custom_slots)],
     story=authoring.story,
     narration_hints=authoring.narration_hints,
@@ -61,6 +64,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="The Forest Mishap",
     genre="Adventure",
     content_rating="family",
+    description="A silly woodland adventure where unexpected noises lead to unexpected encores.",
     story=(
       "On a {adjective} morning, {name} was {verb} through the {place} when a {sound} startled a {noun}. "
       "Everyone laughed, then asked for an encore."
@@ -72,6 +76,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="Midnight at the Space Diner",
     genre="Sci-Fi",
     content_rating="family",
+    description="A noir-flavored late-night scene at an intergalactic greasy spoon.",
     story=(
       "At the {place} space diner, {name} kept {verb} until a {adjective} {noun} burst in with a {sound}. "
       "The crowd cheered and ordered dessert."
@@ -83,6 +88,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="The Castle Caper",
     genre="Fantasy",
     content_rating="family",
+    description="Sneak through a royal castle where every wrong turn ends in royal applause.",
     story=(
       "Inside the {adjective} castle, {name} was caught {verb} past the {place} when a {sound} spooked the {noun}. "
       "A royal encore was demanded."
@@ -94,6 +100,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="The Curious Museum Heist",
     genre="Mystery",
     content_rating="family",
+    description="A whisper-quiet museum tour goes sideways when strange echoes take over.",
     story=(
       "During a {adjective} tour of the {place}, {name} was {verb} when a {sound} echoed over the {noun}. "
       "The guide insisted on an encore."
@@ -105,6 +112,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="Sundown in the Wild West",
     genre="Western",
     content_rating="family",
+    description="A dusty saloon showdown where the biggest threat is a spooked herd.",
     story=(
       "At the {place} saloon, {name} was {verb} when a {sound} scared a {adjective} herd of {noun}. "
       "The town roared for a repeat."
@@ -116,6 +124,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="The Ocean Odyssey",
     genre="Adventure",
     content_rating="family",
+    description="High-seas hijinks aboard a ship where the crew demands an encore.",
     story=(
       "On the {adjective} deck of the {place}, {name} was {verb} when a {sound} startled the {noun}. "
       "The crew begged for an encore."
@@ -127,6 +136,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="The Library Lockdown",
     genre="Mystery",
     content_rating="family",
+    description="A detective, a suspect, and a mysterious object in the quietest room imaginable.",
     story=(
       "Detective {detective} tiptoed into the {adjective} library, clutching a {object}. "
       "A {sound} echoed through the {place}, and suspect {suspect} froze in their tracks."
@@ -143,6 +153,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="Starlight Rescue",
     genre="Sci-Fi",
     content_rating="family",
+    description="A heroic dash across alien skies when a gadget sounds the alarm.",
     story=(
       "{name} was {verb} across the {adjective} skies of {planet} when the {gadget} blared a {sound}. "
       "The rescue mission had begun."
@@ -158,6 +169,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="The Dragon Parade",
     genre="Fantasy",
     content_rating="family",
+    description="Lead a magical creature through town chanting spells until something shimmers.",
     story=(
       "Hero {hero} led a {adjective} {creature} through {place}, chanting the spell '{spell}'. "
       "At the finish, the {quest} shimmered with magic."
@@ -175,6 +187,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="The Bakery Blizzard",
     genre="Comedy",
     content_rating="family",
+    description="A flour-covered catastrophe in the kitchen that leaves the crowd cheering.",
     story=(
       "{name} was {verb} in the {place} bakery when a {adjective} {food} caused a {sound}. "
       "Flour flew everywhere and the crowd cheered."
@@ -186,6 +199,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="Jungle Jam Session",
     genre="Adventure",
     content_rating="family",
+    description="Deep in the jungle, one sound kicks off an impromptu animal jam session.",
     story=(
       "In the {place} jungle, {name} started {verb} with a {sound}. "
       "Soon a {adjective} band of {noun} joined the chorus."
@@ -197,6 +211,7 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
     title="Turbulence and Snacks",
     genre="Comedy",
     content_rating="family",
+    description="A perfectly ordinary flight that is anything but, from takeoff to complimentary snack.",
     story=(
       "My vacation flight seemed perfectly ordinary until the pilot introduced himself as Captain {pilot_name} "
       "and announced we would be cruising at an altitude of {large_number} feet. As the plane taxied, "
@@ -232,6 +247,7 @@ TEMPLATE_SUMMARIES: list[TemplateSummary] = [
     title=definition.title,
     genre=definition.genre,
     content_rating=definition.content_rating,
+    description=definition.description,
   )
   for definition in TEMPLATE_DEFINITIONS.values()
 ]
@@ -255,6 +271,7 @@ def _definition_from_row(row: TemplateRow) -> TemplateDefinition:
     title=row.title,
     genre=row.genre,
     content_rating=row.content_rating,
+    description=row.description or "",
     slots=[TemplateSlot(**slot) for slot in slots],
     story=definition.get("story") or "",
     narration_hints=definition.get("narration_hints") or [],
@@ -269,7 +286,13 @@ def list_templates_from_db(db) -> list[TemplateSummary]:
   if not rows:
     return TEMPLATE_SUMMARIES
   return [
-    TemplateSummary(id=row.id, title=row.title, genre=row.genre, content_rating=row.content_rating)
+    TemplateSummary(
+      id=row.id,
+      title=row.title,
+      genre=row.genre,
+      content_rating=row.content_rating,
+      description=row.description or "",
+    )
     for row in rows
   ]
 

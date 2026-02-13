@@ -106,9 +106,7 @@ async def ws_handler(ws: WebSocket):
 
     while True:
       msg = await anyio.to_thread.run_sync(
-        pubsub.get_message,
-        ignore_subscribe_messages=True,
-        timeout=1.0,
+        lambda: pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
       )
       if not msg:
         continue

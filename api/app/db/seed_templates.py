@@ -27,6 +27,7 @@ def seed_templates(db: Session) -> int:
       row = TemplateRow(
         id=definition.id,
         title=definition.title,
+        description=definition.description,
         genre=definition.genre,
         content_rating=definition.content_rating,
         definition=payload,
@@ -37,6 +38,7 @@ def seed_templates(db: Session) -> int:
       db.add(row)
     else:
       row.title = definition.title
+      row.description = definition.description
       row.genre = definition.genre
       row.content_rating = definition.content_rating
       row.definition = payload

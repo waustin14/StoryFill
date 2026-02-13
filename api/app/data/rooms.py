@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.core.jwt import create_host_token, create_player_token
 from app.core.moderation import moderation_block_reason
 from app.data.moderation_events import record_moderation_event
+from app.data.polish import polish_story
 from app.data.slot_types import get_slot_type
 from app.data.templates import default_template_definition, get_template_definition
 from app.data.tts import clear_room_tts, purge_room_tts
@@ -691,6 +692,7 @@ def reveal_story(room: Room) -> str:
   if room.revealed_story:
     return room.revealed_story
   story = render_story(room)
+  story = polish_story(story)
   block_reason = moderation_block_reason(story)
   record_moderation_event(
     "story",

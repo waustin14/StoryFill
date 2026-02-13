@@ -12,6 +12,7 @@ type TemplateSummary = {
   title: string
   genre: string
   content_rating: string
+  description: string
 }
 
 const STORAGE_KEY = "storyfill.templateId"
@@ -274,7 +275,7 @@ export default function TemplateSelectClient() {
                     />
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-300">
-                    Curated story framework with fresh prompts and a ready-to-reveal ending.
+                    {template.description}
                   </p>
                 </label>
               )

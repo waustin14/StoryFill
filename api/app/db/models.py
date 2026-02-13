@@ -16,6 +16,7 @@ class Template(Base):
   # Keep IDs stable and human-readable for now (matches existing API ids like "t-forest-mishap").
   id: Mapped[str] = mapped_column(String(64), primary_key=True)
   title: Mapped[str] = mapped_column(String(200), nullable=False)
+  description: Mapped[str | None] = mapped_column(String(500), nullable=True)
   genre: Mapped[str] = mapped_column(String(64), nullable=False)
   content_rating: Mapped[str] = mapped_column(String(32), nullable=False)
 
