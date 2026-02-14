@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle } from "lucide-react"
 
+import { API_BASE_URL } from "@/lib/api"
 import type { SoloSession } from "@/lib/solo-session"
 import { loadSoloSession, restartSoloRound, saveSoloSession } from "@/lib/solo-session"
 import { clearMultiplayerSession, loadMultiplayerSession, saveMultiplayerSession } from "@/lib/multiplayer-session"
@@ -62,7 +63,7 @@ export default function PromptingClient() {
       if (!multiplayer) return
       try {
         setMultiplayerStatus("loading")
-        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
+        const apiBase = API_BASE_URL
         let nextSession = multiplayer
         let reconciledPrompts: MultiplayerPrompt[] | null = null
 
@@ -265,7 +266,7 @@ export default function PromptingClient() {
                       return
                     }
                     setMultiplayerSubmitStatus("submitting")
-                    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
+                    const apiBase = API_BASE_URL
                     for (const prompt of multiplayerPrompts) {
                       const response = await fetch(
                         `${apiBase}/v1/rooms/${multiplayer.roomCode}/rounds/${multiplayer.roundId}/prompts/${prompt.id}:submit`,

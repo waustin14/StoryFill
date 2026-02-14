@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import anyio
 from fastapi import APIRouter, WebSocket
+
+logger = logging.getLogger(__name__)
 
 from app.core.jwt import decode_token
 from app.data.rooms import (
@@ -67,6 +70,7 @@ async def ws_handler(ws: WebSocket):
     pubsub = client.pubsub()
     pubsub.subscribe(EVENT_CHANNEL)
   except Exception:
+    logger.exception("Failed to initialize Redis pub/sub for room %s", room_code)
     pubsub = None
 
   # Send an initial snapshot so clients can render immediately.
@@ -91,7 +95,7 @@ async def ws_handler(ws: WebSocket):
       )
     )
   except Exception:
-    pass
+    logger.exception("Failed to send initial snapshot for room %s", room_code)
 
   async def recv_loop():
     # Keep the connection open; we don't require client messages yet (heartbeat optional).
@@ -125,11 +129,14 @@ async def ws_handler(ws: WebSocket):
     async with anyio.create_task_group() as tg:
       tg.start_soon(send_loop)
       tg.start_soon(recv_loop)
+  except anyio.get_cancelled_exc_class():
+    raise
   except Exception:
+    logger.exception("WebSocket task group error for room %s", room_code)
     return
   finally:
     try:
       if pubsub:
         await anyio.to_thread.run_sync(pubsub.close)
     except Exception:
-      pass
+      logger.exception("Failed to close Redis pub/sub for room %s", room_code)

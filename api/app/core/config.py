@@ -3,7 +3,7 @@ import os
 
 def env(key: str, default: str) -> str:
   value = os.getenv(key)
-  return value if value else default
+  return value if value is not None else default
 
 
 DATABASE_URL = env("DATABASE_URL", "postgresql+psycopg2://storyfill:storyfill@postgres:5432/storyfill")

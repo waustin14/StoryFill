@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, CheckCircle2, Copy, Play } from "lucide-react"
 
+import { API_BASE_URL, wsBaseUrl } from "@/lib/api"
 import type { MultiplayerSession } from "@/lib/multiplayer-session"
 import { clearMultiplayerSession, loadMultiplayerSession } from "@/lib/multiplayer-session"
 
@@ -26,16 +27,6 @@ type RoomProgressResponse = {
   connected_total: number
   disconnected_total: number
   ready_to_reveal: boolean
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
-
-function wsBaseUrl() {
-  const base = new URL(API_BASE_URL)
-  base.protocol = base.protocol === "https:" ? "wss:" : "ws:"
-  base.pathname = "/v1/ws"
-  base.search = ""
-  return base.toString()
 }
 
 export default function LobbyClient() {

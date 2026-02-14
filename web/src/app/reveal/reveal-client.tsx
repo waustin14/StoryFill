@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Pause, Play, Share2, Sparkles, Square, Volume2 } from "lucide-react"
 
+import { API_BASE_URL, wsBaseUrl } from "@/lib/api"
 import type { SoloSession } from "@/lib/solo-session"
 import { loadSoloSession, restartSoloRound, saveSoloSession } from "@/lib/solo-session"
 import type { MultiplayerSession } from "@/lib/multiplayer-session"
@@ -75,16 +76,6 @@ type ReconnectPlayerResponse = {
   player_display_name: string
   room_snapshot: RoomSnapshot
   prompts: Array<{ id: string; label: string; type: string; submitted: boolean }>
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
-
-function wsBaseUrl() {
-  const base = new URL(API_BASE_URL)
-  base.protocol = base.protocol === "https:" ? "wss:" : "ws:"
-  base.pathname = "/v1/ws"
-  base.search = ""
-  return base.toString()
 }
 
 export default function RevealClient() {
@@ -433,8 +424,8 @@ export default function RevealClient() {
         if (!response.ok) return
         const data = (await response.json()) as TTSStatusResponse
         if (!active) return
-        setTtsStatus(data.status ?? ttsStatus)
-        setTtsPlayback(data.playback_state ?? ttsPlayback)
+        setTtsStatus((prev) => data.status ?? prev)
+        setTtsPlayback((prev) => data.playback_state ?? prev)
         setTtsAudioUrl(normalizeAudioUrl(data.audio_url))
         setTtsError(data.error_message ?? null)
         setTtsFromCache(Boolean(data.from_cache))

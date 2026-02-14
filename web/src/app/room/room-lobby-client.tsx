@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertTriangle } from "lucide-react"
 
+import { API_BASE_URL } from "@/lib/api"
 import { saveMultiplayerSession } from "@/lib/multiplayer-session"
 
 type CreateRoomResponse = {
@@ -44,7 +45,6 @@ type JoinRoomResponse = {
   }
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 const TEMPLATE_STORAGE_KEY = "storyfill.templateId"
 
 export default function RoomLobbyClient() {

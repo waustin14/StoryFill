@@ -6,6 +6,7 @@ import { AlertTriangle } from "lucide-react"
 
 import type { MultiplayerSession } from "@/lib/multiplayer-session"
 import { clearMultiplayerSession, loadMultiplayerSession, saveMultiplayerSession } from "@/lib/multiplayer-session"
+import { API_BASE_URL } from "@/lib/api"
 import { createSoloSession, saveSoloSession } from "@/lib/solo-session"
 
 type TemplateSummary = {
@@ -17,7 +18,6 @@ type TemplateSummary = {
 }
 
 const STORAGE_KEY = "storyfill.templateId"
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 
 export default function TemplateSelectClient() {
   const router = useRouter()

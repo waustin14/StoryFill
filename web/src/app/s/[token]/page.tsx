@@ -1,5 +1,7 @@
 import Link from "next/link"
 
+import { API_BASE_URL } from "@/lib/api"
+
 type ShareArtifactResponse = {
   share_token: string
   room_code: string
@@ -7,8 +9,6 @@ type ShareArtifactResponse = {
   rendered_story: string
   expires_at: string
 }
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 
 async function loadShare(token: string): Promise<ShareArtifactResponse | null> {
   try {

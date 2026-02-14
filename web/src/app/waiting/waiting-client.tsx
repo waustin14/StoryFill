@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Sparkles } from "lucide-react"
 
+import { API_BASE_URL, wsBaseUrl } from "@/lib/api"
 import type { MultiplayerSession } from "@/lib/multiplayer-session"
 import {
   clearMultiplayerSession,
@@ -45,16 +46,6 @@ type RoomSnapshot = {
   locked: boolean
   template_id: string
   players: Array<{ id: string; display_name: string; is_host?: boolean }>
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
-
-function wsBaseUrl() {
-  const base = new URL(API_BASE_URL)
-  base.protocol = base.protocol === "https:" ? "wss:" : "ws:"
-  base.pathname = "/v1/ws"
-  base.search = ""
-  return base.toString()
 }
 
 export default function WaitingClient() {

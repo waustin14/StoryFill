@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import type { TemplateSlot } from "@/lib/template-definitions"
 
 export type PromptAssignment = {
@@ -19,7 +20,6 @@ export type SoloSession = {
 }
 
 const STORAGE_KEY = "storyfill.soloSession"
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 
 function createId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
