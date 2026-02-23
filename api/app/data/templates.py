@@ -235,6 +235,90 @@ _AUTHORING_DEFINITIONS: list[TemplateAuthoringDefinition] = [
       "Give each sound effect a brief, dramatic pause before continuing.",
     ],
   ),
+  TemplateAuthoringDefinition(
+    id="t-electric-jam",
+    title="The Electric Jam",
+    genre="Comedy",
+    content_rating="family",
+    description="A rock band bio where every member is wilder than the last.",
+    story=(
+      "The band has been playing {adjective_1}-style music together for {number} years. "
+      "Their lead singer, {singer}, plays a mean keyboard and likes to {verb_1} on the microphone. "
+      "The guitarist shakes the tambourine and wails as one of the most {adjective_2} singers around. "
+      "The bassist rocks out on the {adjective_3} bass and plays the vibes with lots of {noun_1} and soul. "
+      "The saxophonist is the {adjective_4} one, always wearing a {adjective_5} fedora over their {body_part}. "
+      "The trumpet player shakes their {color} hair like a wild {noun_2}. "
+      "And of course, the drummer is the most {adjective_6} of them all — "
+      "loving drums, {plural_noun_1}, and rock and roll, "
+      "bashing the kit like they want to {verb_2} it! "
+      "The band travels the world in their psychedelic {noun_3}. "
+      "And when they get to your {adjective_7} town, it's time to let your hair down, "
+      "put on your {plural_noun_2}, and shake your groove {noun_4} all night long!"
+    ),
+    custom_slots={
+      "singer": CustomSlot(type="name"),
+    },
+    narration_hints=[
+      "Read like an enthusiastic rock documentary narrator.",
+      "Build energy with each band member introduction.",
+      "Go big on the finale.",
+    ],
+  ),
+  TemplateAuthoringDefinition(
+    id="t-critics-corner",
+    title="The Critics' Corner",
+    genre="Comedy",
+    content_rating="family",
+    description="Two grumpy theater critics trade insults about the worst show they've ever seen.",
+    story=(
+      '"Why do these stories all have {number} words missing?" asked one critic. '
+      '"Beats me," replied the other. "But remember, we\'re talking about the {adjective_1} theater. '
+      'When has anything here ever made sense?" '
+      '"Good point. If you\'re looking for sense, don\'t try to get it from this show!" '
+      '"This performance is so hard to watch, it makes {adjective_2} paint drying look like '
+      'a {adjective_3} blockbuster." '
+      '"This script is so {adjective_4}, it makes a {noun_1} of knock-knock jokes look like '
+      'great literature!" '
+      '"Why do they call this {adjective_5} thing entertainment?" '
+      '"More like {noun_2}!" '
+      '"I\'d rather eat live {plural_noun_1} than sit through this again!" '
+      '"There\'s one good thing I can say about this {adjective_6} show..." '
+      '"What\'s that?" '
+      '"It makes a great {noun_3}!" '
+      '"Ha! Say, let\'s go eat some {food}... I\'m starved!"'
+    ),
+    narration_hints=[
+      "Read as a back-and-forth dialogue between two grumpy old men.",
+      "Deliver each insult with deadpan timing.",
+      "End on a cheerful note when food is mentioned.",
+    ],
+  ),
+  TemplateAuthoringDefinition(
+    id="t-chaotic-chef",
+    title="The Chaotic Chef",
+    genre="Comedy",
+    content_rating="family",
+    description="A legendary, incomprehensible chef whose kitchen disasters are somehow delicious.",
+    story=(
+      "Have you ever eaten exploding {verb_1} shrimp? How about a soufflé that's so fluffy "
+      "it goes {noun_1} into the air? Or a banana split that comes with its own dancing "
+      "{plural_noun_1}? If you have, then you've probably enjoyed some delicacies made by "
+      "the world's most chaotic chef. From {adjective_1} crème brûlée to the bushy "
+      "{plural_noun_2} beneath his nose, this chef is easy to recognize and impossible to "
+      "understand. But whenever he's {verb_2} in the kitchen, you can tell he knows what "
+      "he's doing — even if no one else can figure it out. Why is he always {verb_3} "
+      "everywhere and putting {plural_noun_3} in the skillet? The chef might have some "
+      "{adjective_2} ideas, like making doughnuts by poking {food} holes in {adjective_3} "
+      "muffins, but he is always happy to share his culinary {plural_noun_4} with anybody "
+      "who wants to watch. And he's not afraid to sacrifice his own {noun_2} for his recipes, "
+      "even with sauce so {adjective_4}, it blows his hat off his {body_part}!"
+    ),
+    narration_hints=[
+      "Read like an awestruck food documentary narrator.",
+      "Lean into the absurdity with genuine admiration.",
+      "Speed up during the chaotic kitchen moments.",
+    ],
+  ),
 ]
 
 TEMPLATE_DEFINITIONS: dict[str, TemplateDefinition] = {

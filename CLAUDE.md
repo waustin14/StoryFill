@@ -117,6 +117,9 @@ docker compose restart api
 # Access MinIO console (object storage)
 # Navigate to http://localhost:9001
 # Credentials: minio / minio123
+
+# Access Jaeger UI (trace viewer)
+# Navigate to http://localhost:16686
 ```
 
 ## Code Structure Notes

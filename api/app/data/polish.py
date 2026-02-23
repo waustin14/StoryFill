@@ -23,7 +23,6 @@ def polish_story(story: str) -> str:
         return story
 
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com")
-    max_tokens = max(64, int(len(story) * 1.5 / 4))
 
     try:
         from opentelemetry import trace
@@ -39,8 +38,7 @@ def polish_story(story: str) -> str:
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
                     "model": POLISH_MODEL,
-                    "temperature": 0,
-                    "max_tokens": max_tokens,
+                    "reasoning_effort": "low",
                     "messages": [
                         {"role": "system", "content": _SYSTEM_PROMPT},
                         {"role": "user", "content": story},
