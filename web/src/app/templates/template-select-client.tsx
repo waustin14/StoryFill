@@ -44,7 +44,6 @@ export default function TemplateSelectClient() {
       setMultiplayerSession(null)
     } else {
       setMultiplayerSession(session)
-      // Non-host players should go straight to the lobby
       if (session && session.role !== "host") {
         router.push("/lobby")
         return
@@ -170,7 +169,7 @@ export default function TemplateSelectClient() {
   const continueLabel = isMultiplayer
     ? isHost
       ? submitStatus === "saving"
-        ? "Saving..."
+        ? "Saving…"
         : "Continue to Lobby"
       : "Head to Lobby"
     : "Start Solo"
@@ -178,7 +177,7 @@ export default function TemplateSelectClient() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Choose a Story Template</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Choose a Story Template</h1>
         <p className="text-muted-foreground">
           {isMultiplayer
             ? "The host selects the template before the game starts."
@@ -187,30 +186,20 @@ export default function TemplateSelectClient() {
       </header>
 
       {submitError && (
-        <div
-          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-          role="alert"
-        >
+        <div className="alert-error" role="alert">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>{submitError}</span>
         </div>
       )}
 
       {status === "loading" && (
-        <div
-          className="rounded-lg border border-dashed border-slate-300 p-6 text-slate-600 dark:border-slate-700 dark:text-slate-300"
-          role="status"
-          aria-live="polite"
-        >
+        <div className="status-pending" role="status" aria-live="polite">
           Loading templates…
         </div>
       )}
 
       {status === "error" && (
-        <div
-          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-6 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-          role="alert"
-        >
+        <div className="alert-error" role="alert">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>We couldn&apos;t load templates right now. Please refresh and try again.</span>
         </div>
@@ -218,7 +207,7 @@ export default function TemplateSelectClient() {
 
       {status === "ready" && (
         <fieldset className="space-y-4">
-          <legend className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <legend className="font-mono text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">
             Template List
           </legend>
           <div className="grid gap-4 md:grid-cols-2">
@@ -227,17 +216,17 @@ export default function TemplateSelectClient() {
               return (
                 <label
                   key={template.id}
-                  className={`flex cursor-pointer flex-col gap-3 rounded-xl border p-4 transition ${
+                  className={`flex cursor-pointer flex-col gap-3 rounded-2xl border p-5 transition-all duration-150 ${
                     isSelected
-                      ? "border-slate-900 bg-slate-50 shadow-sm dark:border-slate-200 dark:bg-slate-900/60"
-                      : "border-slate-200 bg-white hover:border-slate-400 dark:border-slate-800 dark:bg-slate-950"
+                      ? "border-primary/60 bg-primary/5 shadow-sm"
+                      : "border-border bg-card hover:border-primary/30 hover:shadow-sm"
                   } ${selectionLocked ? "cursor-not-allowed opacity-70" : ""}`}
                   aria-disabled={selectionLocked}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-lg font-semibold">{template.title}</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <p className="text-sm text-muted-foreground">
                         {template.genre} · {template.content_rating}
                       </p>
                     </div>
@@ -252,7 +241,7 @@ export default function TemplateSelectClient() {
                       disabled={selectionLocked}
                     />
                   </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                  <p className="text-sm text-muted-foreground">
                     {template.description}
                   </p>
                 </label>
@@ -262,9 +251,9 @@ export default function TemplateSelectClient() {
         </fieldset>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/40">
-        <span className="text-slate-600 dark:text-slate-300">
-          Current selection: <strong className="text-slate-900 dark:text-slate-100">{selectionLabel}</strong>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/50 p-4 text-sm">
+        <span className="text-muted-foreground">
+          Current selection: <strong className="text-foreground">{selectionLabel}</strong>
         </span>
         <button
           type="button"

@@ -140,7 +140,6 @@ export default function WaitingClient() {
       setModerationStatus("loading")
       setModerationError(null)
 
-      // Hosts can connect with either hostToken or their playerToken (host is also a player).
       const token =
         session.role === "host" ? (session.hostToken ?? session.playerToken) : session.playerToken
       if (!token) {
@@ -237,14 +236,11 @@ export default function WaitingClient() {
   if (!session) {
     return (
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold">Waiting</h1>
-        <p className="text-slate-600 dark:text-slate-300">
+        <h1 className="font-display text-3xl font-bold tracking-tight">Waiting</h1>
+        <p className="text-muted-foreground">
           No active multiplayer session found. Return to the lobby to join a room.
         </p>
-        <Link
-          href="/room"
-          className="btn-primary"
-        >
+        <Link href="/room" className="btn-primary">
           Go to Room Lobby
         </Link>
       </section>
@@ -343,17 +339,14 @@ export default function WaitingClient() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Waiting for the story</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Waiting for the story</h1>
         <p className="text-muted-foreground">
           Progress updates show counts only — no words are revealed until the host shares the story.
         </p>
       </header>
 
       {status === "error" && error && (
-        <div
-          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-          role="alert"
-        >
+        <div className="alert-error" role="alert">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>{error}</span>
         </div>
@@ -363,7 +356,7 @@ export default function WaitingClient() {
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 Room progress
               </p>
               <h2 className="text-xl font-semibold">Collecting prompts</h2>
@@ -375,7 +368,7 @@ export default function WaitingClient() {
 
           <div className="mt-6 space-y-4">
             <div
-              className="space-y-3 rounded-xl border bg-muted p-4"
+              className="space-y-3 rounded-xl border bg-muted/50 p-4"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={assignedTotal}
@@ -411,7 +404,7 @@ export default function WaitingClient() {
             </div>
 
             <div
-              className="rounded-xl border border-dashed bg-card px-4 py-3 text-sm text-muted-foreground"
+              className="status-pending"
               role="status"
               aria-live="polite"
               aria-atomic="true"
@@ -423,7 +416,7 @@ export default function WaitingClient() {
 
         <div className="space-y-4">
           <div className="rounded-2xl border bg-card p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
               {isHost ? "Host view" : "Player view"}
             </p>
             <h2 className="mt-2 text-xl font-semibold">
@@ -459,10 +452,7 @@ export default function WaitingClient() {
                   Waiting for host
                 </button>
               )}
-              <Link
-                href="/lobby"
-                className="btn-secondary"
-              >
+              <Link href="/lobby" className="btn-secondary">
                 Back to lobby
               </Link>
             </div>
@@ -470,7 +460,7 @@ export default function WaitingClient() {
 
           {isHost && (
             <div className="rounded-2xl border bg-card p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 Moderation
               </p>
               <h2 className="mt-2 text-xl font-semibold">Room controls</h2>
@@ -479,19 +469,16 @@ export default function WaitingClient() {
               </p>
 
               {moderationStatus === "error" && moderationError && (
-                <div
-                  className="mt-4 flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-                  role="alert"
-                >
+                <div className="alert-error mt-4" role="alert">
                   <AlertTriangle className="h-5 w-5 shrink-0" />
                   <span>{moderationError}</span>
                 </div>
               )}
 
-              <div className="mt-4 rounded-xl border bg-muted p-4 text-sm">
+              <div className="mt-4 rounded-xl border bg-muted/50 p-4 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                       Room status
                     </p>
                     <p className="mt-2 text-base font-semibold">
@@ -505,7 +492,7 @@ export default function WaitingClient() {
                     className="btn-secondary"
                   >
                     {moderationStatus === "loading"
-                      ? "Updating..."
+                      ? "Updating…"
                       : hostLocked
                         ? "Unlock room"
                         : "Lock room"}
@@ -514,7 +501,7 @@ export default function WaitingClient() {
               </div>
 
               <div className="mt-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                   Players
                 </p>
                 {hostPlayers.length === 0 ? (
@@ -524,7 +511,7 @@ export default function WaitingClient() {
                     {hostPlayers.map((player) => (
                       <li
                         key={player.id}
-                        className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-xl border bg-card px-3 py-2 text-sm"
                       >
                         <span className="font-medium text-foreground">{player.display_name}</span>
                         <button
@@ -534,9 +521,7 @@ export default function WaitingClient() {
                             kickDialogRef.current?.showModal()
                           }}
                           disabled={moderationStatus === "loading"}
-                          className={`rounded-full border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:border-rose-400 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-200 ${
-                            moderationStatus === "loading" ? "cursor-not-allowed opacity-70" : ""
-                          }`}
+                          className="rounded-full border border-destructive/40 px-3 py-1 text-xs font-semibold text-destructive transition hover:border-destructive/70 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                           Kick
                         </button>
@@ -579,7 +564,7 @@ export default function WaitingClient() {
               setKickTarget(null)
               kickDialogRef.current?.close()
             }}
-            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+            className="rounded-full bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition hover:opacity-90"
           >
             Remove
           </button>

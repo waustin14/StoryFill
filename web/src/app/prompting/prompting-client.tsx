@@ -114,7 +114,6 @@ export default function PromptingClient() {
           return
         }
         if (response.status === 409) {
-          // State-machine guard: multiplayer prompt collection hasn't started yet.
           router.push("/lobby")
           return
         }
@@ -148,23 +147,20 @@ export default function PromptingClient() {
       return (
         <section className="space-y-6">
           <header className="space-y-2">
-            <h1 className="text-2xl font-semibold">Your Prompts</h1>
-            <p className="text-slate-600 dark:text-slate-300">
+            <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Your Prompts</h1>
+            <p className="text-muted-foreground">
               Multiplayer prompts are blind — only the labels are shown.
             </p>
           </header>
 
           {multiplayerStatus === "loading" && (
-            <div className="rounded-lg border border-dashed border-slate-300 p-6 text-slate-600 dark:border-slate-700 dark:text-slate-300">
-              Assigning prompts...
+            <div className="status-pending" role="status" aria-live="polite">
+              Assigning prompts…
             </div>
           )}
 
           {multiplayerStatus === "error" && multiplayerError && (
-            <div
-              className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-              role="alert"
-            >
+            <div className="alert-error" role="alert">
               <AlertTriangle className="h-5 w-5 shrink-0" />
               <span>{multiplayerError}</span>
             </div>
@@ -172,18 +168,18 @@ export default function PromptingClient() {
 
           {multiplayerStatus === "ready" && currentPrompt && (
             <>
-              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">
                 Prompt {currentIndex + 1} of {totalPrompts}
               </p>
 
               <label
                 key={currentPrompt.id}
-                className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+                className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm"
               >
-                <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                   {currentPrompt.type}
                 </span>
-                <span className="text-base font-semibold">{currentPrompt.label}</span>
+                <span className="text-lg font-semibold">{currentPrompt.label}</span>
                 <input
                   type="text"
                   placeholder="Type your answer"
@@ -196,16 +192,16 @@ export default function PromptingClient() {
                     multiplayerValidation &&
                     !!getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type)
                   }
-                  className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
+                  className={`rounded-xl border px-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground/60 focus-ring ${
                     multiplayerValidation &&
                     getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type)
-                      ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
-                      : "border-slate-200 dark:border-slate-700"
+                      ? "border-destructive focus:border-destructive"
+                      : "border-input"
                   }`}
                 />
                 {multiplayerValidation &&
                   getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type) && (
-                    <span className="text-xs text-rose-600 dark:text-rose-300">
+                    <span className="text-xs text-destructive">
                       {getPromptIssue(multiplayerAnswers[currentPrompt.id] ?? "", currentPrompt.type)}
                     </span>
                   )}
@@ -302,7 +298,7 @@ export default function PromptingClient() {
                 }}
                 className="btn-primary"
               >
-                {multiplayerSubmitStatus === "submitting" ? "Submitting..." : "Submit Prompts"}
+                {multiplayerSubmitStatus === "submitting" ? "Submitting…" : "Submit Prompts"}
               </button>
             )}
           </div>
@@ -312,14 +308,11 @@ export default function PromptingClient() {
 
     return (
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold">Prompting</h1>
-        <p className="text-slate-600 dark:text-slate-300">
+        <h1 className="font-display text-3xl font-bold tracking-tight">Prompting</h1>
+        <p className="text-muted-foreground">
           No active solo session found. Choose a mode to begin.
         </p>
-        <Link
-          href="/"
-          className="btn-primary"
-        >
+        <Link href="/" className="btn-primary">
           Return to Start
         </Link>
       </section>
@@ -334,31 +327,31 @@ export default function PromptingClient() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Your Prompts</h1>
-        <p className="text-slate-600 dark:text-slate-300">
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Your Prompts</h1>
+        <p className="text-muted-foreground">
           Solo play skips the lobby — your prompts are assigned immediately.
         </p>
       </header>
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300">
-        Room: <span className="font-semibold text-slate-900 dark:text-slate-100">{session.roomId}</span>
+      <div className="rounded-xl border bg-muted/50 p-4 text-sm text-muted-foreground">
+        Room: <span className="font-semibold text-foreground">{session.roomId}</span>
         {" · "}
-        Round: <span className="font-semibold text-slate-900 dark:text-slate-100">{session.roundId}</span>
+        Round: <span className="font-semibold text-foreground">{session.roundId}</span>
       </div>
 
-      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+      <p className="font-mono text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">
         Prompt {currentIndex + 1} of {soloTotalPrompts}
       </p>
 
       {soloCurrentPrompt && (
         <label
           key={soloCurrentPrompt.id}
-          className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+          className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm"
         >
-          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+          <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
             {soloCurrentPrompt.type}
           </span>
-          <span className="text-base font-semibold">{soloCurrentPrompt.label}</span>
+          <span className="text-lg font-semibold">{soloCurrentPrompt.label}</span>
           <input
             type="text"
             placeholder="Type your answer"
@@ -368,14 +361,14 @@ export default function PromptingClient() {
               setSoloAnswers((prev) => ({ ...prev, [soloCurrentPrompt.id]: event.target.value }))
             }
             aria-invalid={soloValidation && !!getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type)}
-            className={`rounded-lg border px-3 py-2 text-sm focus:border-slate-400 dark:bg-slate-950 ${
+            className={`rounded-xl border px-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground/60 focus-ring ${
               soloValidation && getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type)
-                ? "border-rose-400 focus:border-rose-400 dark:border-rose-700"
-                : "border-slate-200 dark:border-slate-700"
+                ? "border-destructive"
+                : "border-input"
             }`}
           />
           {soloValidation && getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type) && (
-            <span className="text-xs text-rose-600 dark:text-rose-300">
+            <span className="text-xs text-destructive">
               {getPromptIssue(soloAnswers[soloCurrentPrompt.id] ?? "", soloCurrentPrompt.type)}
             </span>
           )}
@@ -383,10 +376,7 @@ export default function PromptingClient() {
       )}
 
       {soloError && (
-        <div
-          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-          role="alert"
-        >
+        <div className="alert-error" role="alert">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>{soloError}</span>
         </div>

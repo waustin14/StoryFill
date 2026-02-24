@@ -163,7 +163,7 @@ export default function LobbyClient() {
   if (!session) {
     return (
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold">Lobby</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Lobby</h1>
         <p className="text-muted-foreground">No active room session found.</p>
         <Link href="/room" className="btn-primary">
           Create or join a room
@@ -248,21 +248,21 @@ export default function LobbyClient() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Room lobby</p>
-        <h1 className="text-2xl font-semibold">Get ready</h1>
+        <p className="font-mono text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">Room lobby</p>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Get ready</h1>
         <p className="text-muted-foreground">
           {isHost ? "Invite players, then start the game." : "Waiting for the host to start the game."}
         </p>
       </header>
 
       {error && (
-        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="alert-error" role="alert">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-4 shadow-sm">
         <div className="space-y-1">
           <p className="text-sm font-semibold">Room code</p>
           <div className="flex items-center gap-2">
@@ -275,11 +275,11 @@ export default function LobbyClient() {
                 setCopyStatus("copied")
                 setTimeout(() => setCopyStatus("idle"), 2000)
               }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-semibold text-foreground transition hover:bg-muted"
             >
               {copyStatus === "copied" ? (
                 <>
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
                   Copied!
                 </>
               ) : (
@@ -292,7 +292,7 @@ export default function LobbyClient() {
           </div>
         </div>
         <div className="text-sm text-muted-foreground">
-          {status === "connecting" ? "Connecting…" : status === "error" ? "Reconnecting…" : "Live"}
+          {status === "connecting" ? "Connecting…" : status === "error" ? "Reconnecting…" : "● Live"}
         </div>
       </div>
 
@@ -317,7 +317,7 @@ export default function LobbyClient() {
 
         <div className="mt-4 grid gap-2">
           {players.map((player) => (
-            <div key={player.id} className="flex items-center justify-between rounded-lg border bg-background px-4 py-3">
+            <div key={player.id} className="flex items-center justify-between rounded-xl border bg-background px-4 py-3">
               <span className="font-medium">
                 {player.display_name}
                 {player.is_host && (
