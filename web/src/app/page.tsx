@@ -1,58 +1,79 @@
 import Link from "next/link"
 
+const steps = [
+  "Create or join a room with a short code",
+  "Host picks the story template",
+  "Everyone fills in their prompts — blind",
+  "Host reveals the completed story to the room",
+]
+
 export default function LandingPage() {
   return (
-    <section className="space-y-10">
-      <header className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+    <section className="space-y-12 py-4">
+      <header className="space-y-5">
+        <p className="font-mono text-xs font-bold uppercase tracking-[0.35em] text-primary">
           StoryFill
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-          Choose how you want to play.
+        <h1 className="font-display text-5xl font-black leading-[1.05] tracking-tight text-foreground md:text-6xl">
+          Pick your words.<br />
+          <em className="text-primary not-italic">Make a story.</em>
         </h1>
-        <p className="max-w-2xl text-base text-muted-foreground">
-          Start solo to jump straight into prompts, or spin up a multiplayer room to host friends.
+        <p className="max-w-md text-base leading-relaxed text-muted-foreground">
+          Fill in the blanks, then watch the chaos unfold. Play solo or host a room with friends.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         <Link
           href="/templates?mode=solo"
-          className="focus-ring flex h-full flex-col gap-4 rounded-2xl border bg-card p-6 text-left shadow-sm transition hover:border-ring"
+          className="focus-ring group flex flex-col justify-between gap-8 rounded-2xl border bg-card p-7 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
         >
+          <span
+            aria-hidden
+            className="font-display text-7xl font-black leading-none text-border transition-colors duration-200 group-hover:text-primary/15 select-none"
+          >
+            01
+          </span>
           <div className="space-y-2">
-            <p className="text-lg font-semibold">Solo</p>
-            <p className="text-sm text-muted-foreground">
-              Pick a template and dive right into prompts.
+            <p className="text-xl font-bold">Solo</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Pick a template and dive straight into prompts. Your story, instantly.
             </p>
           </div>
-          <span className="text-sm text-muted-foreground">
-            Best for a quick story on your own.
-          </span>
         </Link>
 
         <Link
           href="/room"
-          className="focus-ring flex h-full flex-col gap-4 rounded-2xl border bg-card p-6 text-left shadow-sm transition hover:border-ring"
+          className="focus-ring group flex flex-col justify-between gap-8 rounded-2xl border bg-card p-7 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
         >
+          <span
+            aria-hidden
+            className="font-display text-7xl font-black leading-none text-border transition-colors duration-200 group-hover:text-primary/15 select-none"
+          >
+            02
+          </span>
           <div className="space-y-2">
-            <p className="text-lg font-semibold">Multiplayer</p>
-            <p className="text-sm text-muted-foreground">
-              Create a room, invite players, and pick a shared template.
+            <p className="text-xl font-bold">Multiplayer</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Create a room, invite players, pick a template, and reveal the story together.
             </p>
           </div>
-          <span className="text-sm text-muted-foreground">
-            Host-led flow with live lobby updates.
-          </span>
         </Link>
       </div>
 
-      <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-        <h2 className="text-base font-semibold text-foreground">Multiplayer flow</h2>
-        <ol className="mt-3 grid gap-2">
-          <li>1. Create or join a room.</li>
-          <li>2. Choose the story template together.</li>
-          <li>3. Start the game when everyone is ready.</li>
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        <p className="mb-5 font-mono text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
+          Multiplayer flow
+        </p>
+        <ol className="space-y-4">
+          {steps.map((step, i) => (
+            <li key={i} className="flex items-center gap-4">
+              <span className="font-mono text-sm font-bold tabular-nums text-primary/60">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="text-sm text-foreground">{step}</span>
+            </li>
+          ))}
         </ol>
       </div>
     </section>

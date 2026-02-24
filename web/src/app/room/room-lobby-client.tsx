@@ -158,7 +158,7 @@ export default function RoomLobbyClient() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Room Lobby</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Room Lobby</h1>
         <p className="text-muted-foreground">
           Create a room as host or join an existing room with a code.
         </p>
@@ -174,17 +174,14 @@ export default function RoomLobbyClient() {
       </div>
 
       {error && (
-        <div
-          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-          role="alert"
-        >
+        <div className="alert-error" role="alert">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="space-y-4 rounded-2xl border bg-card p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Host a Room</h2>
           <p className="text-sm text-muted-foreground">
             Start a lobby and share the room code with friends.
@@ -194,12 +191,12 @@ export default function RoomLobbyClient() {
             onClick={handleCreateRoom}
             className="btn-secondary"
           >
-            {createStatus === "loading" ? "Creating..." : "Create Room"}
+            {createStatus === "loading" ? "Creating…" : "Create Room"}
           </button>
 
           {createdRoom && (
-            <div className="rounded-xl border bg-muted p-4 text-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="rounded-xl border bg-muted/50 p-4 text-sm">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 Room code
               </p>
               <p className="mt-3">
@@ -210,16 +207,16 @@ export default function RoomLobbyClient() {
           )}
         </div>
 
-        <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="space-y-4 rounded-2xl border bg-card p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Join a Room</h2>
-          <form className="space-y-3" onSubmit={handleJoinRoom}>
+          <form className="space-y-4" onSubmit={handleJoinRoom}>
             <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Room Code
               <input
                 value={roomCode}
                 onChange={(event) => setRoomCode(event.target.value.toUpperCase())}
                 placeholder="ABC123"
-                className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus-ring"
+                className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus-ring"
                 required
               />
             </label>
@@ -230,20 +227,20 @@ export default function RoomLobbyClient() {
                 onChange={(event) => setDisplayName(event.target.value)}
                 placeholder="Player name"
                 maxLength={30}
-                className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus-ring"
+                className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus-ring"
               />
             </label>
             <button
               type="submit"
               className="btn-primary"
             >
-              {joinStatus === "loading" ? "Joining..." : "Join Room"}
+              {joinStatus === "loading" ? "Joining…" : "Join Room"}
             </button>
           </form>
 
           {joinedRoom && (
-            <div className="rounded-xl border bg-muted p-4 text-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="rounded-xl border bg-muted/50 p-4 text-sm">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 Players
               </p>
               <ul className="mt-2 space-y-1">

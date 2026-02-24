@@ -223,7 +223,6 @@ export default function RevealClient() {
           return
         }
         if (response.status === 409) {
-          // Rare race: snapshot arrives before story is readable. Retry once shortly.
           setTimeout(() => {
             if (!alive) return
             void loadStoryOnce(roundId)
@@ -284,7 +283,6 @@ export default function RevealClient() {
           setReadyToReveal(Boolean(nextProgress.ready_to_reveal))
           if (nextSnapshot.round_index != null) setRoundIndex(nextSnapshot.round_index)
 
-          // Keep local session aligned with the server (e.g., replay creates a new round_id).
           if (
             nextSnapshot.round_id !== multiplayerSession.roundId ||
             nextSnapshot.template_id !== multiplayerSession.templateId ||
@@ -307,7 +305,6 @@ export default function RevealClient() {
           }
 
           if (nextSnapshot.room_state !== "Revealed" && storyValueRef.current) {
-            // New round started or host ended replay; clear the revealed view.
             setStory(null)
           }
 
@@ -629,21 +626,15 @@ export default function RevealClient() {
   if (mode === "none") {
     return (
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold">Reveal</h1>
-        <p className="text-slate-600 dark:text-slate-300">
+        <h1 className="font-display text-3xl font-bold tracking-tight">Reveal</h1>
+        <p className="text-muted-foreground">
           No active session found. Start a new round to reveal a story.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link
-            href="/"
-            className="btn-primary"
-          >
+          <Link href="/" className="btn-primary">
             Return to Start
           </Link>
-          <Link
-            href="/room"
-            className="btn-secondary"
-          >
+          <Link href="/room" className="btn-secondary">
             Go to Room Lobby
           </Link>
         </div>
@@ -655,17 +646,14 @@ export default function RevealClient() {
     return (
       <section className="space-y-6">
         <header className="space-y-2">
-          <h1 className="text-2xl font-semibold">Story Reveal</h1>
-          <p className="text-slate-600 dark:text-slate-300">
+          <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Story Reveal</h1>
+          <p className="text-muted-foreground">
             Your story is ready. Controls stay quiet so the story gets the spotlight.
           </p>
         </header>
 
         {!soloReady && (
-          <div
-            className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
-            role="alert"
-          >
+          <div className="alert-warning" role="alert">
             Finish your prompts before revealing the story.
           </div>
         )}
@@ -683,11 +671,11 @@ export default function RevealClient() {
         )}
 
         {soloReady && soloStory && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <section className="rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">Story narration</h2>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
+                <p className="text-sm text-muted-foreground">
                   Generate an AI narration of your story.
                 </p>
               </div>
@@ -695,7 +683,7 @@ export default function RevealClient() {
                 <a
                   href={ttsAudioUrl}
                   download
-                  className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
+                  className="btn-outline text-xs"
                 >
                   Download audio
                 </a>
@@ -703,14 +691,14 @@ export default function RevealClient() {
             </div>
 
             <div
-              className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-200"
+              className="mt-4 rounded-xl border bg-muted/50 p-4 text-sm text-foreground"
               role="status"
               aria-live="polite"
               aria-atomic="true"
             >
               <p className="font-medium">{ttsStatusLabel(ttsStatus, ttsFromCache, ttsError)}</p>
               {ttsPlayback !== "idle" && (
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Playback: {ttsPlayback}
                 </p>
               )}
@@ -718,44 +706,28 @@ export default function RevealClient() {
 
             <div className="mt-4 flex flex-wrap gap-3">
               {ttsStatus === "idle" && (
-                <button
-                  type="button"
-                  onClick={requestSoloNarration}
-                  className="btn-primary"
-                >
+                <button type="button" onClick={requestSoloNarration} className="btn-primary">
                   <Volume2 className="mr-2 h-4 w-4" />
                   Generate narration
                 </button>
               )}
 
               {ttsIsError && (
-                <button
-                  type="button"
-                  onClick={requestSoloNarration}
-                  className="btn-primary"
-                >
+                <button type="button" onClick={requestSoloNarration} className="btn-primary">
                   <Volume2 className="mr-2 h-4 w-4" />
                   Retry narration
                 </button>
               )}
 
               {ttsIsWorking && (
-                <button
-                  type="button"
-                  disabled
-                  className="btn-primary"
-                >
+                <button type="button" disabled className="btn-primary">
                   Generating…
                 </button>
               )}
 
               {ttsIsReady && (
                 <>
-                  <button
-                    type="button"
-                    onClick={handlePlay}
-                    className="btn-primary"
-                  >
+                  <button type="button" onClick={handlePlay} className="btn-primary">
                     <Play className="mr-2 h-4 w-4" />
                     {ttsPlayback === "paused" ? "Resume" : "Play"}
                   </button>
@@ -768,11 +740,7 @@ export default function RevealClient() {
                     <Pause className="mr-2 h-4 w-4" />
                     Pause
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleStop}
-                    className="btn-secondary"
-                  >
+                  <button type="button" onClick={handleStop} className="btn-secondary">
                     <Square className="mr-2 h-4 w-4" />
                     Stop
                   </button>
@@ -813,10 +781,7 @@ export default function RevealClient() {
           >
             Replay with New Prompts
           </button>
-          <Link
-            href="/"
-            className="btn-secondary"
-          >
+          <Link href="/" className="btn-secondary">
             Back to Start
           </Link>
         </div>
@@ -831,23 +796,20 @@ export default function RevealClient() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Story Reveal</h1>
-        <p className="text-slate-600 dark:text-slate-300">
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Story Reveal</h1>
+        <p className="text-muted-foreground">
           The host reveals the story for everyone. Once revealed, it stays locked for this round.
         </p>
       </header>
 
       {error && (
-        <div
-          className="flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-          role="alert"
-        >
+        <div className="alert-error" role="alert">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">
+      <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground shadow-sm">
         Room: <span className="mono-chip">{multiplayerSession.roomCode}</span>
         {" · "}
         Round {roundIndex + 1}
@@ -865,7 +827,7 @@ export default function RevealClient() {
         </div>
       ) : (
         <div
-          className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300"
+          className="status-pending"
           role="status"
           aria-live="polite"
           aria-atomic="true"
@@ -879,89 +841,69 @@ export default function RevealClient() {
       )}
 
       {story && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <section className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Story narration</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Optional narration generated after reveal. Everyone can listen once it’s ready.
+              <p className="text-sm text-muted-foreground">
+                Optional narration generated after reveal. Everyone can listen once it's ready.
               </p>
             </div>
             {ttsIsReady && ttsAudioUrl && (
-              <a
-                href={ttsAudioUrl}
-                download
-                className="inline-flex items-center rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500"
-              >
+              <a href={ttsAudioUrl} download className="btn-outline text-xs">
                 Download audio
               </a>
             )}
           </div>
 
           <div
-            className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-200"
+            className="mt-4 rounded-xl border bg-muted/50 p-4 text-sm text-foreground"
             role="status"
             aria-live="polite"
             aria-atomic="true"
           >
             <p className="font-medium">{ttsStatusLabel(ttsStatus, ttsFromCache, ttsError)}</p>
             {ttsPlayback !== "idle" && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Playback: {ttsPlayback}
               </p>
             )}
             {ttsIsBlocked && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Start a new round to try narration again.
               </p>
             )}
             {!isHost && ttsStatus === "idle" && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                The host can start narration when they’re ready.
+              <p className="mt-1 text-xs text-muted-foreground">
+                The host can start narration when they're ready.
               </p>
             )}
           </div>
 
           <div className="mt-4 flex flex-wrap gap-3">
             {isHost && ttsStatus === "idle" && (
-              <button
-                type="button"
-                onClick={requestNarration}
-                className="btn-primary"
-              >
+              <button type="button" onClick={requestNarration} className="btn-primary">
                 <Volume2 className="mr-2 h-4 w-4" />
                 Generate narration
               </button>
             )}
 
             {isHost && ttsIsError && (
-              <button
-                type="button"
-                onClick={requestNarration}
-                className="btn-primary"
-              >
+              <button type="button" onClick={requestNarration} className="btn-primary">
                 <Volume2 className="mr-2 h-4 w-4" />
                 Retry narration
               </button>
             )}
 
             {ttsIsWorking && (
-              <button
-                type="button"
-                disabled
-                className="btn-primary"
-              >
+              <button type="button" disabled className="btn-primary">
                 Generating…
               </button>
             )}
 
             {ttsIsReady && (
               <>
-                <button
-                  type="button"
-                  onClick={handlePlay}
-                  className="btn-primary"
-                >
+                <button type="button" onClick={handlePlay} className="btn-primary">
                   <Play className="mr-2 h-4 w-4" />
                   {ttsPlayback === "paused" ? "Resume" : "Play"}
                 </button>
@@ -974,11 +916,7 @@ export default function RevealClient() {
                   <Pause className="mr-2 h-4 w-4" />
                   Pause
                 </button>
-                <button
-                  type="button"
-                  onClick={handleStop}
-                  className="btn-secondary"
-                >
+                <button type="button" onClick={handleStop} className="btn-secondary">
                   <Square className="mr-2 h-4 w-4" />
                   Stop
                 </button>
@@ -1009,34 +947,27 @@ export default function RevealClient() {
                 Generate a public link that shows the rendered story only.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={requestShare}
-              className="btn-outline"
-            >
+            <button type="button" onClick={requestShare} className="btn-outline">
               <Share2 className="mr-2 h-4 w-4" />
-              {shareStatus === "loading" ? "Creating..." : shareUrl ? "Copy share link" : "Create share link"}
+              {shareStatus === "loading" ? "Creating…" : shareUrl ? "Copy share link" : "Create share link"}
             </button>
           </div>
 
           {shareError && (
-            <div
-              className="mt-4 flex items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-              role="alert"
-            >
+            <div className="alert-error mt-4" role="alert">
               <AlertTriangle className="h-5 w-5 shrink-0" />
               <span>{shareError}</span>
             </div>
           )}
 
           {shareUrl && (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/40">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+            <div className="mt-4 rounded-xl border bg-muted/50 p-4 text-sm">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 Share link
               </p>
-              <p className="mt-2 break-all font-semibold text-slate-900 dark:text-slate-100">{shareUrl}</p>
+              <p className="mt-2 break-all font-semibold text-foreground">{shareUrl}</p>
               {shareExpiresAt && (
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-2 text-xs text-muted-foreground">
                   Expires on {new Date(shareExpiresAt).toLocaleString()}.
                 </p>
               )}
@@ -1129,10 +1060,7 @@ export default function RevealClient() {
           </button>
         )}
 
-        <Link
-          href="/lobby"
-          className="btn-secondary"
-        >
+        <Link href="/lobby" className="btn-secondary">
           Back to Lobby
         </Link>
       </div>

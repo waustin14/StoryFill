@@ -1,5 +1,6 @@
-/* globals.css — StoryFill (Parchment Pop)
-   Aligned with `artifacts/ui-design/globals.css` token set and usage guidance.
+/* globals.css — StoryFill (Letterpress Vivid)
+   An editorial, warm-ink design system with optical serif display type
+   and geometric sans-serif body text.
 */
 
 @tailwind base;
@@ -16,70 +17,72 @@
 
 @layer base {
   :root {
-    /* Parchment Pop — Light */
-    --background: 42 33% 97%;
-    --foreground: 222 47% 11%;
+    /* ─── Letterpress Vivid: Light ─── */
+    /* Warm paper background */
+    --background: 38 40% 97%;
+    --foreground: 20 20% 10%;
 
-    --card: 42 33% 99%;
-    --card-foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 20% 10%;
 
-    --popover: 42 33% 99%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 20% 10%;
 
-    /* Primary = Start / Reveal / Play Audio */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary = sealing-wax red-orange */
+    --primary: 16 72% 47%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary = Replay / Share / Cancel */
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    /* Secondary = warm ivory */
+    --secondary: 38 25% 93%;
+    --secondary-foreground: 20 15% 30%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 46%;
+    --muted: 38 25% 93%;
+    --muted-foreground: 20 8% 48%;
 
-    /* Accent = reveal-only spark */
-    --accent: 35 92% 55%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent = golden amber */
+    --accent: 38 88% 50%;
+    --accent-foreground: 20 20% 10%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 38 18% 87%;
+    --input: 38 18% 87%;
+    --ring: 16 72% 47%;
 
-    --radius: 14px;
+    --radius: 12px;
   }
 
   .dark {
-    /* Parchment Pop — Dark */
-    --background: 222 47% 8%;
-    --foreground: 210 40% 98%;
+    /* ─── Letterpress Vivid: Dark ─── */
+    --background: 20 25% 6%;
+    --foreground: 38 30% 93%;
 
-    --card: 222 47% 10%;
-    --card-foreground: 210 40% 98%;
+    --card: 20 22% 9%;
+    --card-foreground: 38 30% 93%;
 
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 20 22% 9%;
+    --popover-foreground: 38 30% 93%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    /* Primary = bright tangerine */
+    --primary: 18 90% 58%;
+    --primary-foreground: 20 25% 6%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 20 18% 15%;
+    --secondary-foreground: 38 20% 80%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 70%;
+    --muted: 20 18% 15%;
+    --muted-foreground: 38 10% 56%;
 
-    --accent: 35 92% 55%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 38 88% 55%;
+    --accent-foreground: 20 25% 6%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 217 91% 60%;
+    --border: 20 15% 20%;
+    --input: 20 15% 20%;
+    --ring: 18 90% 58%;
   }
 
   * {
@@ -88,6 +91,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans, system-ui, sans-serif);
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -101,35 +105,88 @@
 }
 
 @layer utilities {
+  /* Accessible focus ring */
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 
-  /* Story canvas “stage” helper (reveal-first). */
+  /* Story canvas "stage" — theatrical reveal container */
   .story-stage {
-    @apply rounded-[calc(var(--radius)+6px)] border bg-card p-6 shadow-sm;
+    @apply rounded-2xl border bg-card p-8 shadow-md;
+    font-family: var(--font-display, Georgia, serif);
     background-image:
-      radial-gradient(1200px 600px at 20% 0%, hsl(var(--accent) / 0.12), transparent 60%),
-      radial-gradient(900px 500px at 80% 10%, hsl(var(--primary) / 0.10), transparent 55%);
+      radial-gradient(900px 400px at 0% 0%, hsl(var(--accent) / 0.08), transparent 55%),
+      radial-gradient(700px 350px at 100% 100%, hsl(var(--primary) / 0.08), transparent 55%);
   }
 
-  /* Room code / timer styling helper */
+  /* Room code / timer chip */
   .mono-chip {
-    @apply font-mono text-sm tracking-[0.18em] px-3 py-1 rounded-full border bg-muted text-muted-foreground;
+    font-family: var(--font-mono, 'Courier New', monospace);
+    @apply text-sm tracking-[0.2em] px-3 py-1 rounded-full border bg-muted text-foreground font-medium;
   }
 
-  /* Minimal shadcn-style button helpers (until we adopt shadcn/ui components). */
+  /* Primary action button */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition bg-primary text-primary-foreground hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60 focus-ring;
+    @apply inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold
+           bg-primary text-primary-foreground
+           transition-all duration-150
+           hover:opacity-90
+           disabled:pointer-events-none disabled:opacity-50
+           focus-ring;
   }
 
+  /* Secondary action button */
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:pointer-events-none disabled:opacity-60 focus-ring;
+    @apply inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold
+           bg-secondary text-secondary-foreground
+           transition-all duration-150
+           hover:bg-secondary/70
+           disabled:pointer-events-none disabled:opacity-50
+           focus-ring;
   }
 
+  /* Outline button */
   .btn-outline {
-    @apply inline-flex items-center justify-center rounded-full border border-input bg-background px-4 py-2 text-sm font-semibold transition hover:bg-muted disabled:pointer-events-none disabled:opacity-60 focus-ring;
+    @apply inline-flex items-center justify-center rounded-full border border-border bg-transparent px-5 py-2.5 text-sm font-semibold
+           text-foreground
+           transition-all duration-150
+           hover:bg-muted
+           disabled:pointer-events-none disabled:opacity-50
+           focus-ring;
   }
+}
+
+/* Alert and status helpers — using CSS color level 4 for opacity on custom properties */
+.alert-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--destructive) / 0.35);
+  background-color: hsl(var(--destructive) / 0.08);
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: hsl(var(--destructive));
+}
+
+.alert-warning {
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--accent) / 0.45);
+  background-color: hsl(var(--accent) / 0.1);
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: hsl(var(--foreground));
+}
+
+.status-pending {
+  border-radius: 0.75rem;
+  border: 1px dashed hsl(var(--border));
+  padding: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -142,4 +199,3 @@
     scroll-behavior: auto !important;
   }
 }
-
