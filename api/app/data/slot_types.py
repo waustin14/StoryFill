@@ -25,6 +25,8 @@ SLOT_TYPE_REGISTRY: dict[str, SlotType] = {
   "liquid": SlotType(name="liquid", label="A type of liquid", min_length=1, max_length=40),
   "clothing": SlotType(name="clothing", label="An article of clothing", min_length=1, max_length=40),
   "number": SlotType(name="number", label="A large number", min_length=1, max_length=20),
+  "color": SlotType(name="color", label="A color", min_length=1, max_length=24),
+  "plural_noun": SlotType(name="plural_noun", label="A plural noun", min_length=1, max_length=40),
 }
 
 DEFAULT_SLOT_TYPE = SlotType(name="unknown", label="A word or phrase", min_length=1, max_length=60)

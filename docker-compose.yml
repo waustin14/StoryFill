@@ -35,6 +35,8 @@ services:
         condition: service_started
       tts:
         condition: service_started
+      otel-collector:
+        condition: service_healthy
 
   worker:
     build:
@@ -45,6 +47,8 @@ services:
     command: python -m app.main
     depends_on:
       redis:
+        condition: service_healthy
+      otel-collector:
         condition: service_healthy
 
   tts:
@@ -68,6 +72,23 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 7000 --reload
     depends_on:
       - minio
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    volumes:
+      - ./infra/otel-collector.yml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - jaeger
+    healthcheck:
+      test: ["CMD", "/otelcol", "validate", "--config", "/etc/otelcol/config.yaml"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  jaeger:
+    image: jaegertracing/jaeger:latest
+    ports:
+      - "16686:16686"
 
   postgres:
     image: postgres:latest

@@ -13,6 +13,7 @@ from app.db.seed_templates import seed_templates
 from app.routes.health import router as health_router
 from app.routes.rooms import router as rooms_router
 from app.routes.templates import router as templates_router
+from app.routes.solo import router as solo_router
 from app.routes.tts import router as tts_router
 from app.routes.ws import router as ws_router
 
@@ -50,6 +51,7 @@ app.middleware("http")(request_id_middleware)
 init_tracing(app)
 app.include_router(templates_router)
 app.include_router(rooms_router)
+app.include_router(solo_router)
 app.include_router(tts_router)
 app.include_router(ws_router)
 app.include_router(health_router)

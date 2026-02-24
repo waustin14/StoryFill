@@ -95,6 +95,10 @@ export default function RevealClient() {
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null)
   const [ttsError, setTtsError] = useState<string | null>(null)
   const [ttsFromCache, setTtsFromCache] = useState(false)
+  const [polishStatus, setPolishStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [polishedSoloStory, setPolishedSoloStory] = useState<string | null>(null)
+  const [moderationBlocked, setModerationBlocked] = useState(false)
+  const [moderationMessage, setModerationMessage] = useState<string | null>(null)
   const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareExpiresAt, setShareExpiresAt] = useState<string | null>(null)
@@ -189,6 +193,54 @@ export default function RevealClient() {
     if (!soloSession || !soloReady) return null
     return renderStory(soloSession.story, soloSession.slots, soloSession.prompts)
   }, [soloSession, soloReady])
+
+  useEffect(() => {
+    if (!soloStory || !soloSession) return
+    let active = true
+    setPolishStatus("loading")
+    setPolishedSoloStory(null)
+    setModerationBlocked(false)
+    setModerationMessage(null)
+
+    const polish = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/v1/solo/polish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            story: soloStory,
+            session_id: soloSession.roomId,
+            round_id: soloSession.roundId,
+          }),
+        })
+        if (!response.ok) {
+          if (!active) return
+          setPolishStatus("error")
+          return
+        }
+        const data = (await response.json()) as {
+          polished_story: string
+          moderation_blocked: boolean
+          block_message?: string
+        }
+        if (!active) return
+        setPolishedSoloStory(data.polished_story)
+        setModerationBlocked(data.moderation_blocked)
+        setModerationMessage(data.block_message ?? null)
+        setPolishStatus("ready")
+      } catch {
+        if (!active) return
+        setPolishStatus("error")
+      }
+    }
+    polish()
+
+    return () => {
+      active = false
+    }
+  }, [soloStory, soloSession])
+
+  const displaySoloStory = polishStatus === "ready" && polishedSoloStory ? polishedSoloStory : soloStory
 
   const normalizeAudioUrl = (url: string | null | undefined) => {
     if (!url) return null
@@ -568,7 +620,7 @@ export default function RevealClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          story: soloStory,
+          story: displaySoloStory ?? soloStory,
           session_id: soloSession.roomId,
           round_id: soloSession.roundId,
         }),
@@ -658,7 +710,26 @@ export default function RevealClient() {
           </div>
         )}
 
-        {soloReady && soloStory && (
+        {soloReady && soloStory && polishStatus === "loading" && (
+          <div
+            className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300"
+            role="status"
+            aria-live="polite"
+          >
+            Polishing your story…
+          </div>
+        )}
+
+        {moderationBlocked && moderationMessage && (
+          <div
+            className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+            role="alert"
+          >
+            {moderationMessage}
+          </div>
+        )}
+
+        {soloReady && soloStory && polishStatus !== "loading" && (
           <div
             className="story-stage text-xl leading-relaxed md:text-2xl"
             role="region"
@@ -666,11 +737,11 @@ export default function RevealClient() {
             tabIndex={-1}
             ref={storyRef}
           >
-            <div className="max-w-[70ch]">{soloStory}</div>
+            <div className="max-w-[70ch]">{displaySoloStory}</div>
           </div>
         )}
 
-        {soloReady && soloStory && (
+        {soloReady && soloStory && polishStatus !== "loading" && (
           <section className="rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -772,6 +843,10 @@ export default function RevealClient() {
               setTtsAudioUrl(null)
               setTtsError(null)
               setTtsFromCache(false)
+              setPolishStatus("idle")
+              setPolishedSoloStory(null)
+              setModerationBlocked(false)
+              setModerationMessage(null)
               const nextSession = restartSoloRound(soloSession)
               saveSoloSession(nextSession)
               setSoloSession(nextSession)
